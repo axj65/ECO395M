@@ -1,0 +1,257 @@
+---
+title: "HW1 Exercise 1"
+output:
+  pdf_document: default
+  html_document: default
+date: "2023-01-30"
+---
+
+Load Libraries
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/Homework/")
+library(readr)
+library(tidyverse)
+
+library(rsample)
+library(caret)
+library(modelr)
+library(parallel)
+library(foreach)
+#library(mosaic)
+```
+
+Load dataset
+```{r, include=FALSE}
+abia <- read_csv("Data/ABIA.csv")
+```
+
+##1. Data Visualization: Flights at ABIA
+
+```{r}
+abia_outbound <- abia %>% filter(Origin=='AUS')
+```
+
+
+```{r}
+#ggplot(abia_outbound, aes(x=DayOfWeek)) + 
+#  geom_histogram() + 
+#  xlab("Day Of Week") + 
+#  ylab("Number of Flgihts") +
+#  scale_x_continuous(breaks = seq(1,max(abia_outbound$DayOfWeek)))
+
+ggplot(abia_outbound, aes(DayOfWeek, group=Cancelled, fill=Cancelled)) + 
+  geom_histogram()
+
+```
+
+
+```{r}
+ggplot(abia_outbound, aes(x = factor(DayOfWeek), y = )) + 
+ # geom_boxplot() + geom_smooth(method = lm, aes(group=1))
+```
+
+
+1. Looking at the plot and SLM, there does seem to be a positive correlation between beauty and evaluation scores.
+```{r}
+ggplot(aes(x=beauty, y=eval), data=profs) + 
+  geom_point() + 
+  geom_smooth(method="lm")
+
+fit1 = lm(eval~beauty, data = profs)
+summary(fit1)
+```
+```{r}
+profs = profs %>% 
+  mutate(participation_rate = students/allstudents)
+
+```
+
+
+2. Intuitively, I want to look at Minority, Age, Gender, Tenure, and participation rate on the survey
+
+
+3. EDA Plots 
+
+Look at distribution of variables of interest by themselves
+```{r}
+ggplot(profs) + 
+  geom_histogram(aes(x=beauty))
+
+ggplot(profs) + 
+  geom_histogram(aes(x=eval))
+
+ggplot(profs) + 
+  geom_histogram(aes(x=age))
+
+ggplot(profs) + 
+  geom_bar(aes(x=gender))
+
+ggplot(profs) + 
+  geom_bar(aes(x=minority))
+
+ggplot(profs) + 
+  geom_bar(aes(x=tenure))
+
+ggplot(profs) + 
+  geom_histogram(aes(x=participation_rate))
+
+```
+
+Look at interaction of two variables at a time.
+```{r}
+ggplot(aes(x=age, y=beauty), data=profs) + 
+  geom_point() + 
+  geom_smooth(method="lm")
+
+ggplot(aes(x=age, y=eval), data=profs) + 
+  geom_point() + 
+  geom_smooth(method="lm")
+
+ggplot(aes(x=participation_rate, y=eval), data=profs) + 
+  geom_point() + 
+  geom_smooth(method="lm")
+
+ggplot(aes(x=participation_rate, y=beauty), data=profs) + 
+  geom_point() + 
+  geom_smooth(method="lm")
+
+ggplot(profs) + 
+  geom_boxplot(aes(x = gender, y = beauty))
+
+ggplot(profs) + 
+  geom_boxplot(aes(x = gender, y = eval))
+
+ggplot(profs) + 
+  geom_boxplot(aes(x = minority, y = eval))
+
+ggplot(profs) + 
+  geom_boxplot(aes(x = tenure, y = eval))
+```
+4. Accounting for other variables, there still seems to be a positive linear relationship between beauty and eval.
+```{r}
+fit2 = lm(eval~beauty + age + participation_rate + factor(gender) + factor(minority) + factor(tenure), data = profs)
+summary(fit2)
+```
+
+5. Having looked through a few different models (adding and dropping various decision variables), it seems like dropping age or adding other variables did not affect the model much. Dropping age increased the coefficient of beauty by about 0.01.
+```{r}
+fit3 = lm(eval~beauty + participation_rate + factor(gender) + factor(minority) + factor(tenure), data = profs)
+summary(fit3)
+```
+
+6. In the SLM: On average, males received higher evals than females by 0.168.
+Comparing the SLM to one of the previous models seems to increase the affect of gender on evals.
+```{r}
+fit4 = lm(eval~factor(gender), data = profs)
+summary(fit4)
+```
+
+
+Part 2
+
+1,2, and 3. Beauty seems to have a larger association with course evaluations for men. When beauty score is low, the gap between beauty on course evaluations is low but the gap increases as beauty increases.
+
+```{r}
+fit5 = lm(eval~factor(gender)*beauty, data = profs)
+  summary(fit5)
+  
+plotModel(fit5, eval~beauty)  
+
+```
+
+
+4. 
+
+```{r}
+boot1 = do(1000) * {
+    lm(eval~factor(gender)*beauty, data = resample(profs))
+}
+
+confint(boot1)
+```
+
+5.
+
+```{r}
+beauty_percentiles = quantile(profs$beauty, c(0.25, 0.5, 0.75))
+
+gap25 = do(1000) * {
+fit = lm(eval ~ factor(gender) * beauty, data = resample(profs))
+betas = coef(fit)
+betas[2] + betas[4]*beauty_percentiles[1]
+}
+confint(data.frame(gap25))
+
+gap50 = do(1000) * {
+fit = lm(eval ~ factor(gender) * beauty, data = resample(profs))
+betas = coef(fit)
+betas[2] + betas[4]*beauty_percentiles[2]
+}
+confint(data.frame(gap50))
+
+gap75 = do(1000) * {
+fit = lm(eval ~ factor(gender) * beauty, data = resample(profs))
+betas = coef(fit)
+betas[2] + betas[4]*beauty_percentiles[3]
+}
+confint(data.frame(gap75))
+```
+
+
+
+6. Looking at the gender*beauty variable, it still seems that beauty has a larger affect on course evaluations for men. Although the values of the coefficients change once other variables are included, the conclusions regarding the affect of gender on eval does not. Furthermore, the gap as beauty increases for men and women on course evaluations remain.
+
+```{r}
+fit6 = lm(eval~factor(gender)*beauty + participation_rate + factor(minority) + factor(tenure), data = profs)
+summary(fit6)
+```
+
+```{r}
+boot2 = do(1000) * {
+    lm(eval~factor(gender)*beauty+ participation_rate + factor(minority) + factor(tenure), data = resample(profs))
+}
+
+confint(boot2)
+```
+
+```{r}
+gap25 = do(1000) * {
+fit = lm(eval~factor(gender)*beauty + participation_rate + factor(minority) + factor(tenure), data = resample(profs))
+betas = coef(fit)
+betas[2] + betas[7]*beauty_percentiles[1]
+}
+confint(data.frame(gap25))
+
+
+gap50 = do(1000) * {
+fit = lm(eval~factor(gender)*beauty + participation_rate + factor(minority) + factor(tenure), data = resample(profs))
+betas = coef(fit)
+betas[2] + betas[7]*beauty_percentiles[2]
+}
+confint(data.frame(gap50))
+
+gap75 = do(1000) * {
+fit = lm(eval~factor(gender)*beauty + participation_rate + factor(minority) + factor(tenure), data = resample(profs))
+betas = coef(fit)
+betas[2] + betas[7]*beauty_percentiles[3]
+}
+confint(data.frame(gap75))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

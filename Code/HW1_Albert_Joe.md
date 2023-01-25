@@ -1,4 +1,4 @@
-\##1. Data Visualization: Flights at ABIA
+## 1. Data Visualization: Flights at ABIA
 
 In this section, I want to find to give insight into which airline to
 fly in order to minimize the chances of having a cancelled flight and
@@ -17,14 +17,17 @@ is a delay by the carrier, which airline has the shortest delays?
     ## ℹ Use `spec()` to retrieve the full column specification for this data.
     ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 
-\###Flight Cancellations
+### Flight Cancellations
 
 We can first look at the number of flights by airline. Worthy of note:
 \* WN (Southwest Airlines), AA (American Airlines), and CO (Continental
 Airlines) have the most flights going in and out of ABIA \* NW
 (Northwest Airlines) had very few flights going in or out of ABIA and 0
 cancelled flights in this year
-![](HW1_Albert_Joe_files/figure-markdown_strict/chunk3-1.png)
+
+<br/> ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk3-1.png)
+
+<br/>
 
 We can then look to see which airlines had the highest percentage of
 cancelled flights overall (in green). You may ask, what if some airlines
@@ -37,7 +40,8 @@ worth of note is that although WN (Southwest Airlines) and CO
 (Continental Airlines) are in the top 3 for number of flights in and out
 of ABIA,they have relatively lower percentages of cancelled flights due
 to non-airline related reasons.
-![](HW1_Albert_Joe_files/figure-markdown_strict/chunk4-1.png)
+
+<br/> ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk4-1.png)
 
 In this graph, you can see the proportion of flights cancelled by the
 carrier to the total number of cancelled flights by that airline.
@@ -56,46 +60,48 @@ the 4th most number of flights and the highest percentage of flight
 delays along with relatively higher delay times. 2. Although WN
 (Southwest) has the most number of flights and high percentages of
 delays, the delay times for this airline is relatively low.
-![](HW1_Albert_Joe_files/figure-markdown_strict/chunk12-1.png)
 
-\###Summary I want to separate the airlines into 2 categories. One
-category for the airlines with the top three number of flights in and
-out of ABIA, and a secondary category for all the other airlines.
-\####WN(Southwest Airlines), AA(American Airlines), and CO(Continental
-Airlines) Most likely, passengers will fly WN, AA, or CO. In terms of
-cancellation, AA has the highest rates of cancellation whereas WN has
-the lowest rates of cancellation. Especially impressive is that WN
-manages about 1.5 times more flights than AA and more than 3 times more
-flights than CO but still has the lowest rates of cancellation. WN has
-the highest rates of delays but generally have lower delay times than
-the other 2 airlines. In general, combining the factors of chances of
-delay and times of delay, there is not an immediately noticeable
-difference among the 3 airlines. One important aspect to note is that
-although past performance can give insight, it does not determine what
-will happen the future as can be seen from the recent mass cancellation
-of WN due to their scheduling system failing. Although the weather
-initially impacted their cancellations, the weather caused a major error
-in their scheduling system that resulted in WN cancelling many other
-flights, leaving passengers without a flight for days. \####All Other
-Airlines The cancellation among all other airlines are varied. For
-instance, MQ has the highest rates of cancellations among all airlines
-while F9 has the lowest. B6 has the highest rates of delays and
-relatively high delay times. F9 has a relatively lower rate of
-cancellations and delay times. The key takeaway is that passengers
-probably want to avoid MQ when flying among the other airlines.
+<br/> ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk12-1.png)
 
-\##2. Wrangling the Olympics
+### Summary
 
-\###A. What is the 95th percentile of heights for female competitors
-across all Athletics events (i.e., track and field)? Note that sport is
-the broad sport (e.g. Athletics) whereas event is the specific event
-(e.g. 100 meter sprint). The below Table shows the 95th percentile of
-heights for female competitors across events.
+I want to separate the airlines into 2 categories. One category for the
+airlines with the top three number of flights in and out of ABIA, and a
+secondary category for all the other airlines. \#### WN(Southwest
+Airlines), AA(American Airlines), and CO(Continental Airlines) Most
+likely, passengers will fly WN, AA, or CO. In terms of cancellation, AA
+has the highest rates of cancellation whereas WN has the lowest rates of
+cancellation. Especially impressive is that WN manages about 1.5 times
+more flights than AA and more than 3 times more flights than CO but
+still has the lowest rates of cancellation. WN has the highest rates of
+delays but generally have lower delay times than the other 2 airlines.
+In general, combining the factors of chances of delay and times of
+delay, there is not an immediately noticeable difference among the 3
+airlines. One important aspect to note is that although past performance
+can give insight, it does not determine what will happen the future as
+can be seen from the recent mass cancellation of WN due to their
+scheduling system failing. Although the weather initially impacted their
+cancellations, the weather caused a major error in their scheduling
+system that resulted in WN cancelling many other flights, leaving
+passengers without a flight for days. \#### All Other Airlines The
+cancellation among all other airlines are varied. For instance, MQ has
+the highest rates of cancellations among all airlines while F9 has the
+lowest. B6 has the highest rates of delays and relatively high delay
+times. F9 has a relatively lower rate of cancellations and delay times.
+The key takeaway is that passengers probably want to avoid MQ when
+flying among the other airlines.
 
-\###B. Which single women’s event had the greatest variability in
-competitor’s heights across the entire history of the Olympics, as
-measured by the standard deviation? Rowing Women’s Coxed Fours have the
-greatest variability as measured by standard deviation.
+## 2. Wrangling the Olympics
+
+### A. What is the 95th percentile of heights for female competitors across all Athletics events (i.e., track and field)? Note that sport is the broad sport (e.g. Athletics) whereas event is the specific event (e.g. 100 meter sprint).
+
+The below Table shows the 95th percentile of heights for female
+competitors across events.
+
+### B. Which single women’s event had the greatest variability in competitor’s heights across the entire history of the Olympics, as measured by the standard deviation?
+
+Rowing Women’s Coxed Fours have the greatest variability as measured by
+standard deviation.
 
     ## # A tibble: 132 × 3
     ##    event                                   q95    sd
@@ -112,24 +118,21 @@ greatest variability as measured by standard deviation.
     ## 10 Swimming Women's 400 metres Freestyle  185.  7.62
     ## # … with 122 more rows
 
-\###C. How has the average age of Olympic swimmers changed over time?
-Does the trend look different for male swimmers relative to female
-swimmers? Create a data frame that can allow you to visualize these
-trends over time, then plot the data with a line graph with separate
-lines for male and female competitors. Give the plot an informative
-caption answering the two questions just posed.
+### C. How has the average age of Olympic swimmers changed over time? Does the trend look different for male swimmers relative to female swimmers? Create a data frame that can allow you to visualize these trends over time, then plot the data with a line graph with separate lines for male and female competitors. Give the plot an informative caption answering the two questions just posed.
 
 We can see that overall, the average age for swimmers started young,
 quickly increased and then decreased again. In the last few decades, the
 average age gas gradually gone up.
-![](HW1_Albert_Joe_files/figure-markdown_strict/chunk16-1.png)
+
+<br/> ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk16-1.png)
 
 The male swimmers follow generally the same trend as the swimmers
 overall. However, female swimmers’ ages stayed stagnant from 1925 to
 1975 and gradually increases after.
-![](HW1_Albert_Joe_files/figure-markdown_strict/chunk17-1.png)
 
-\##3. K-nearest neighbors: cars
+<br/> ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk17-1.png)
+
+## 3. K-nearest neighbors: cars
 
     ## Rows: 29466 Columns: 17
     ## ── Column specification ────────────────────────────────────────────────────────
@@ -152,8 +155,7 @@ overall. However, female swimmers’ ages stayed stagnant from 1925 to
     sclass65_train = training(sclass65_split)
     sclass65_test = testing(sclass65_split)
 
-\###Run KNN to build a predictive model for price given mileage and
-calculate the RMSE for each value of K for each trim
+### Run KNN to build a predictive model for price given mileage and calculate the RMSE for each value of K for each trim
 
 For each trim, the following plots show the RMSE versuse K so we can see
 where the RMSE bottoms out. For the S class 350, it bottoms out at 10.

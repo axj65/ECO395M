@@ -1,0 +1,358 @@
+---
+title: "HW1"
+output: "md_document"
+date: "2023-01-30"
+---
+
+```{r chunk1, include=FALSE}
+
+#Set Directory
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/Homework/Code/")
+
+
+#Load Libraries
+library(readr)
+library(tidyverse)
+library(rsample)
+library(caret)
+library(modelr)
+library(parallel)
+library(foreach)
+library(patchwork)
+library(dplyr)
+library(rmarkdown)
+#library(mosaic)
+```
+
+
+## 1. Data Visualization: Flights at ABIA
+
+In this section, I want to find to give insight into which airline to fly in order to minimize the chances of having a cancelled flight and minimize the time of delay.
+In other words, I want to answer the following:
+1. Which airlines have the least proportion of cancellations given that the cancellation was due to the carrier?
+2. Which airlines have the least proportion of delays by the carrier?
+3. Given that there is a delay by the carrier, which airline has the shortest delays?
+```{r chunk2, echo=FALSE, show_col_types = FALSE}
+
+#Load Dataset
+abia <- read_csv("Data/ABIA.csv")
+
+#DF with total number of flights grouped by UniqueCarrier
+number_of_flights <- abia %>% 
+  group_by(UniqueCarrier) %>%
+  summarise(n = n())
+
+#DF with total number of cancelled flights grouped by UniqueCarrier
+number_cancelled <- abia %>% 
+  group_by(UniqueCarrier) %>%
+  filter(Cancelled == 1) %>%
+  summarise(n_cancelled = n())
+
+#DF with total number of cancelled flights due to the carrier grouped by UniqueCarrier
+carrier_cancelled <- abia %>% 
+  group_by(UniqueCarrier) %>%
+  filter(Cancelled == 1, CancellationCode == 'A') %>%
+  summarise(carrier_cancelled = n())
+
+#Merge DFs 
+df_cancelled <- merge(number_of_flights, number_cancelled, by = 'UniqueCarrier')
+df_cancelled <- merge(df_cancelled, carrier_cancelled, by = 'UniqueCarrier')
+
+#Percent of total flights cancelled
+df_cancelled <- df_cancelled %>%
+  mutate(percent_cancelled = 100 * n_cancelled / n)
+
+#Percent of flights cancelled due to carrier
+df_cancelled <- df_cancelled %>%
+  mutate(carrier_percent_cancelled = 100 * carrier_cancelled / n)
+
+#Proportion of carrier cancellations to total cancellations
+df_cancelled <- df_cancelled %>%
+  mutate(proportion_carrier_cancel = carrier_percent_cancelled / percent_cancelled)
+```
+
+### Flight Cancellations
+
+We can first look at the number of flights by airline. 
+Worthy of note:
+* WN (Southwest Airlines), AA (American Airlines), and CO (Continental Airlines) have the most flights going in and out of ABIA 
+* NW (Northwest Airlines) had very few flights going in or out of ABIA and 0 cancelled flights in this year
+
+<br/>
+```{r chunk3, echo=FALSE}
+flight_number <- ggplot(abia, aes(x = UniqueCarrier)) + 
+  geom_bar() +
+  xlab("Airline") + 
+  ylab("Number of Flights")
+
+flight_number
+
+#ggplot(df_cancelled, aes(x = UniqueCarrier, y = percent_cancelled)) + 
+#  geom_col() +
+#  xlab("Airline") + 
+#  ylab("Percentage of Flights Cancelled")
+
+#ggplot(df_cancelled, aes(x = UniqueCarrier, y = carrier_percent_cancelled)) + 
+#  geom_col() +
+#  xlab("Airline") + 
+#  ylab("Percentage of Flights Cancelled by Carrier")
+
+```
+
+<br/>
+
+We can then look to see which airlines had the highest percentage of cancelled flights overall (in green). 
+You may ask, what if some airlines were unlucky and had more flights on bad weather days. 
+We can then compare the percentage of flights cancelled by the carrier for reasons other than weather, NAS, or security (in red). 
+So what are the takeaways from the graphs below?
+* If you want to minimize the chance of having your flight cancelled, you probably should avoid MQ (Envoy Air). 
+* Also worth of note is that although WN (Southwest Airlines) and CO (Continental Airlines) are in the top 3 for number of flights in and out of ABIA,they have relatively lower percentages of cancelled flights due to non-airline related reasons.
+
+<br/>
+```{r chunk4, echo=FALSE}
+df_cancel_percent <- df_cancelled %>% 
+  select("UniqueCarrier","percent_cancelled", "carrier_percent_cancelled") %>% 
+  pivot_longer(-UniqueCarrier, names_to = "variable", values_to = "value")
+
+ggplot(df_cancel_percent, aes(UniqueCarrier, value, fill = variable)) + 
+  geom_col(position="dodge") +
+  xlab("Airline") + 
+  ylab("Percent")
+```
+
+In this graph, you can see the proportion of flights cancelled by the carrier to the total number of cancelled flights by that airline.
+```{r chunk5, echo=FALSE}
+ggplot(df_cancelled, aes(x = UniqueCarrier, y = proportion_carrier_cancel)) + 
+  geom_col() +
+  xlab("Airline") + 
+  ylab("Proportion Flights Cancelled by Carrier to All Flights Cancelled")
+```
+
+
+###Flight Delays
+```{r chunk6, echo=FALSE}
+#Create a boolean variable to determine whether or not a flight was delayed
+abia <- abia %>% mutate(CarrierDelayBool = if_else(is.na(CarrierDelay) | is.na(LateAircraftDelay) | CarrierDelay==0 | LateAircraftDelay==0, 0, 1))
+```
+
+```{r chunk7, echo=FALSE}
+#Create a new dataframe to calculate the percentage of delayed flights
+df_delay_percent <- abia %>%
+  group_by(UniqueCarrier) %>%
+  summarize(delay_percent = 100*sum(CarrierDelayBool)/n())
+```
+
+```{r chunk8, echo=FALSE}
+#Bar graph of the percentage of delayed flights by the carrier
+percent_delay_bar <- ggplot(df_delay_percent, aes(x = UniqueCarrier, y = delay_percent)) + 
+  geom_col() +
+  xlab("Airline") + 
+  ylab("Percentage of Flights Delayed by Carrier")
+```
+
+
+```{r chunk9, echo=FALSE}
+#Create a new dataframe that calculates the total time of delay for flights that were delayed
+df_delay <- abia %>% filter(CarrierDelayBool==1)
+df_delay <- df_delay %>% 
+  mutate(DelayTime = CarrierDelay + LateAircraftDelay)
+
+#Note I am removing one value so we can better see the boxplot
+df_delay <- df_delay %>% filter(DelayTime<600)
+```
+
+
+```{r chunk10, echo=FALSE}
+#Boxplot of flight delays
+delay_boxplot <- ggplot(df_delay, aes(x = UniqueCarrier, y = DelayTime)) + 
+  geom_boxplot() +
+  xlab("Airline") + 
+  ylab("Delay Time")
+```
+
+First, I want to keep in mind the total number of flights that each airline has.
+```{r chunk11, echo=FALSE}
+flight_number
+```
+
+From the barplot, we can see the airlines that have the highest percentages of delays, and from the boxplot, we can see the distribution of the delay times. I want to note the following:
+1. B6 (Jetblue) has the 4th most number of flights and the highest percentage of flight delays along with relatively higher delay times.
+2. Although WN (Southwest) has the most number of flights and high percentages of delays, the delay times for this airline is relatively low. 
+
+<br/>
+```{r chunk12, echo=FALSE}
+(percent_delay_bar + delay_boxplot)
+```
+
+### Summary
+I want to separate the airlines into 2 categories. One category for the airlines with the top three number of flights in and out of ABIA, and a secondary category for all the other airlines. 
+#### WN(Southwest Airlines), AA(American Airlines), and CO(Continental Airlines)
+Most likely, passengers will fly WN, AA, or CO. In terms of cancellation, AA has the highest rates of cancellation whereas WN has the lowest rates of cancellation. Especially impressive is that WN manages about 1.5 times more flights than AA and more than 3 times more flights than CO but still has the lowest rates of cancellation. WN has the highest rates of delays but generally have lower delay times than the other 2 airlines. In general, combining the factors of chances of delay and times of delay, there is not an immediately noticeable difference among the 3 airlines. One important aspect to note is that although past performance can give insight, it does not determine what will happen the future as can be seen from the recent mass cancellation of WN due to their scheduling system failing. Although the weather initially impacted their cancellations, the weather caused a major error in their scheduling system that resulted in WN cancelling many other flights, leaving passengers without a flight for days.
+#### All Other Airlines
+The cancellation among all other airlines are varied. For instance, MQ has the highest rates of cancellations among all airlines while F9 has the lowest. B6 has the highest rates of delays and relatively high delay times. F9 has a relatively lower rate of cancellations and delay times. The key takeaway is that passengers probably want to avoid MQ when flying among the other airlines. 
+
+
+## 2. Wrangling the Olympics
+
+```{r chunk13, include=FALSE}
+#Load Dataset
+olympic <- read_csv("Data/olympics_top20.csv")
+```
+
+### A. What is the 95th percentile of heights for female competitors across all Athletics events (i.e., track and field)? Note that sport is the broad sport (e.g. Athletics) whereas event is the specific event (e.g. 100 meter sprint).
+The below Table shows the 95th percentile of heights for female competitors across events.
+
+### B. Which single women's event had the greatest variability in competitor's heights across the entire history of the Olympics, as measured by the standard deviation?
+Rowing Women's Coxed Fours have the greatest variability as measured by standard deviation.
+
+```{r chunk14, echo=FALSE}
+olympic %>% 
+  filter(sex == "F") %>% 
+  group_by(event) %>%
+  summarise(q95 = quantile(height, 0.95),
+            sd = sd(height)) %>%
+  arrange(desc(sd))
+```
+
+### C. How has the average age of Olympic swimmers changed over time? Does the trend look different for male swimmers relative to female swimmers? Create a data frame that can allow you to visualize these trends over time, then plot the data with a line graph with separate lines for male and female competitors. Give the plot an informative caption answering the two questions just posed.
+
+```{r chunk15, echo=FALSE}
+#Create dataframe for swimmers with their average age by year
+df_swimmers <- olympic %>% 
+  filter(sport == "Swimming") %>% 
+  group_by(year) %>%
+  summarise(average_age = mean(age))
+
+#Create dataframe for male swimmers with their average age by year
+df_swimmers_male <- olympic %>% 
+  filter(sport == "Swimming", sex =="M") %>% 
+  group_by(year) %>%
+  summarise(average_age = mean(age))
+
+#Create dataframe for female swimmers with their average age by year
+df_swimmers_female <- olympic %>% 
+  filter(sport == "Swimming", sex =="F") %>% 
+  group_by(year) %>%
+  summarise(average_age = mean(age))
+```
+
+We can see that overall, the average age for swimmers started young, quickly increased and then decreased again. In the last few decades, the average age gas gradually gone up.
+
+<br/>
+```{r chunk16, echo=FALSE}
+ggplot(df_swimmers, aes(x = year, y = average_age)) + 
+  geom_line() +
+  xlab("Year") + 
+  ylab("Average Age")
+```
+
+The male swimmers follow generally the same trend as the swimmers overall. However, female swimmers' ages stayed stagnant from 1925 to 1975 and gradually increases after. 
+
+<br/>
+```{r chunk17, echo=FALSE}
+ggplot() +
+  geom_line(aes(x = year, y = average_age, color = 'red'), data = df_swimmers_male) +
+  geom_line(aes(x = year, y = average_age, color = 'blue'), data = df_swimmers_female) +
+  scale_color_manual(name = 'Gender', values = c('red', 'blue'), labels=c('female', 'male')) +
+  xlab("Year") + 
+  ylab("Average Age")
+```
+
+
+## 3. K-nearest neighbors: cars
+
+```{r chunk18, echo=FALSE}
+
+#load dataset and set seed
+sclass <- read_csv("Data/sclass.csv")
+set.seed(11)
+
+#Create Dataframes for the 350 and 65 AMG trims
+sclass350 <- sclass %>%
+  filter(trim == '350') %>%
+  select(trim, mileage, price)
+
+sclass65 <- sclass %>%
+  filter(trim == '65 AMG') %>%
+  select(trim, mileage, price)
+```
+
+### Split the data into a training and a testing set
+```{r chunk19}
+#train-test split
+sclass350_split = initial_split(sclass350, prop = 0.8)
+sclass350_train = training(sclass350_split)
+sclass350_test = testing(sclass350_split)
+
+sclass65_split = initial_split(sclass65, prop = 0.8)
+sclass65_train = training(sclass65_split)
+sclass65_test = testing(sclass65_split)
+```
+
+### Run KNN to build a predictive model for price given mileage and calculate the RMSE for each value of K for each trim
+```{r chunk20, echo=FALSE}
+
+# 350
+df_350 <- data.frame(K = numeric(), K_RSME = numeric())
+
+for (i in 2:25) {
+  knn350 = knnreg(price ~ mileage, data = sclass350_train, k = i)
+  k_rsme = rmse(knn350, sclass350_test)
+  new_row <- data.frame(K = i, K_RSME = k_rsme)
+  df_350 <- bind_rows(df_350, new_row)
+}
+
+knn350 = knnreg(price ~ mileage, data = sclass350_train, k = 10)
+sclass350_test = sclass350_test %>% mutate(predicted_price = predict(knn350, sclass350_test))
+
+
+# 65
+df_65 <- data.frame(K = numeric(), K_RSME = numeric())
+
+for (i in 2:25) {
+  knn65 = knnreg(price ~ mileage, data = sclass65_train, k = i)
+  k_rsme = rmse(knn65, sclass65_test)
+  new_row <- data.frame(K = i, K_RSME = k_rsme)
+  df_65 <- bind_rows(df_65, new_row)
+}
+
+knn65 = knnreg(price ~ mileage, data = sclass65_train, k = 4)
+sclass65_test = sclass65_test %>% mutate(predicted_price = predict(knn65, sclass65_test))
+```
+
+
+For each trim, the following plots show the RMSE versuse K so we can see where the RMSE bottoms out. For the S class 350, it bottoms out at 10. For the S Class 65AMG, it bottoms out at 4. The S Class 350 yields a larger optimal value of K because the sample size is bigger.
+```{r chunk21, echo=FALSE}
+k350_plot <- ggplot(df_350, aes(x = K, y = K_RSME)) + 
+  geom_line() +
+  ggtitle("S Class 350") 
+
+k65_plot <- ggplot(df_65, aes(x = K, y = K_RSME)) + 
+  geom_line() +
+  ggtitle("S Class 65AMG") 
+
+k350_plot + k65_plot
+```
+
+In the following plots, we can visualize how well our predicted price did compared to the actual price. The scatter plots represent the actual prices of the vehicles and the line plots represent the predicted prices.
+```{r chunk22}
+plot350 <- ggplot(data = sclass350_test) + 
+  geom_point(mapping = aes(x = mileage, y = price)) + 
+  geom_line(mapping = aes(x = mileage, y = predicted_price)) +
+  ggtitle("S Class 350") 
+
+plot65 <- ggplot(data = sclass65_test) + 
+  geom_point(mapping = aes(x = mileage, y = price)) + 
+  geom_line(mapping = aes(x = mileage, y = predicted_price)) +
+  ggtitle("S Class 65AMG") 
+
+plot350 + plot65
+```
+
+
+
+
+
+
+
