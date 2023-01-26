@@ -8,7 +8,7 @@ date: "2023-01-30"
 
 #Set Directory
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/Homework/Code/")
+knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/ECO395M/homework/")
 
 
 #Load Libraries
@@ -23,6 +23,9 @@ library(patchwork)
 library(dplyr)
 library(rmarkdown)
 #library(mosaic)
+
+#Load Dataset
+abia <- read_csv("Data/ABIA.csv")
 ```
 
 
@@ -34,9 +37,6 @@ In other words, I want to answer the following:
 2. Which airlines have the least proportion of delays by the carrier?
 3. Given that there is a delay by the carrier, which airline has the shortest delays?
 ```{r chunk2, echo=FALSE, show_col_types = FALSE}
-
-#Load Dataset
-abia <- read_csv("Data/ABIA.csv")
 
 #DF with total number of flights grouped by UniqueCarrier
 number_of_flights <- abia %>% 
@@ -130,7 +130,7 @@ ggplot(df_cancelled, aes(x = UniqueCarrier, y = proportion_carrier_cancel)) +
 ```
 
 
-###Flight Delays
+### Flight Delays
 ```{r chunk6, echo=FALSE}
 #Create a boolean variable to determine whether or not a flight was delayed
 abia <- abia %>% mutate(CarrierDelayBool = if_else(is.na(CarrierDelay) | is.na(LateAircraftDelay) | CarrierDelay==0 | LateAircraftDelay==0, 0, 1))
@@ -201,12 +201,22 @@ olympic <- read_csv("Data/olympics_top20.csv")
 ```
 
 ### A. What is the 95th percentile of heights for female competitors across all Athletics events (i.e., track and field)? Note that sport is the broad sport (e.g. Athletics) whereas event is the specific event (e.g. 100 meter sprint).
-The below Table shows the 95th percentile of heights for female competitors across events.
+The below Table shows the 95th percentile of heights and for female competitors.
+
+```{r chunk 14a, echo=FALSE}
+olympic %>% 
+  filter(sex == "F") %>% 
+  summarise(q95 = quantile(height, 0.95),
+            sd = sd(height)) %>%
+  arrange(desc(sd))
+```
+
 
 ### B. Which single women's event had the greatest variability in competitor's heights across the entire history of the Olympics, as measured by the standard deviation?
-Rowing Women's Coxed Fours have the greatest variability as measured by standard deviation.
+Rowing Women's Coxed Fours have the greatest variability as measured by standard deviation. Also available is the 95th percentile of heights for female competitors for each athletic event (only top 10 values of standard deviations are shown).
 
-```{r chunk14, echo=FALSE}
+<br/>
+```{r chunk14b, echo=FALSE}
 olympic %>% 
   filter(sex == "F") %>% 
   group_by(event) %>%
@@ -262,7 +272,7 @@ ggplot() +
 
 ## 3. K-nearest neighbors: cars
 
-```{r chunk18, echo=FALSE}
+```{r chunk18, include=FALSE}
 
 #load dataset and set seed
 sclass <- read_csv("Data/sclass.csv")
@@ -336,7 +346,7 @@ k350_plot + k65_plot
 ```
 
 In the following plots, we can visualize how well our predicted price did compared to the actual price. The scatter plots represent the actual prices of the vehicles and the line plots represent the predicted prices.
-```{r chunk22}
+```{r chunk22, echo=FALSE}
 plot350 <- ggplot(data = sclass350_test) + 
   geom_point(mapping = aes(x = mileage, y = price)) + 
   geom_line(mapping = aes(x = mileage, y = predicted_price)) +
