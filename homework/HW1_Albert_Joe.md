@@ -11,10 +11,12 @@ is a delay by the carrier, which airline has the shortest delays?
 ### Flight Cancellations
 
 We can first look at the number of flights by airline. Worthy of note:
-\* WN (Southwest Airlines), AA (American Airlines), and CO (Continental
-Airlines) have the most flights going in and out of ABIA \* NW
-(Northwest Airlines) had very few flights going in or out of ABIA and 0
-cancelled flights in this year
+
+-   WN (Southwest Airlines), AA (American Airlines), and CO (Continental
+    Airlines) have the most flights going in and out of ABIA
+
+-   NW (Northwest Airlines) had very few flights going in or out of ABIA
+    and 0 cancelled flights in this year
 
 <br/> ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk3-1.png)
 
@@ -25,12 +27,15 @@ cancelled flights overall (in green). You may ask, what if some airlines
 were unlucky and had more flights on bad weather days. We can then
 compare the percentage of flights cancelled by the carrier for reasons
 other than weather, NAS, or security (in red). So what are the takeaways
-from the graphs below? \* If you want to minimize the chance of having
-your flight cancelled, you probably should avoid MQ (Envoy Air). \* Also
-worth of note is that although WN (Southwest Airlines) and CO
-(Continental Airlines) are in the top 3 for number of flights in and out
-of ABIA,they have relatively lower percentages of cancelled flights due
-to non-airline related reasons.
+from the graphs below?
+
+-   If you want to minimize the chance of having your flight cancelled,
+    you probably should avoid MQ (Envoy Air).
+
+-   Also worth of note is that although WN (Southwest Airlines) and CO
+    (Continental Airlines) are in the top 3 for number of flights in and
+    out of ABIA,they have relatively lower percentages of cancelled
+    flights due to non-airline related reasons.
 
 <br/> ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk4-1.png)
 
@@ -46,11 +51,15 @@ airline has.
 
 From the barplot, we can see the airlines that have the highest
 percentages of delays, and from the boxplot, we can see the distribution
-of the delay times. I want to note the following: 1. B6 (Jetblue) has
-the 4th most number of flights and the highest percentage of flight
-delays along with relatively higher delay times. 2. Although WN
-(Southwest) has the most number of flights and high percentages of
-delays, the delay times for this airline is relatively low.
+of the delay times. I want to note the following:
+
+1.  B6 (Jetblue) has the 4th most number of flights and the highest
+    percentage of flight delays along with relatively higher delay
+    times.
+
+2.  Although WN (Southwest) has the most number of flights and high
+    percentages of delays, the delay times for this airline is
+    relatively low.
 
 <br/> ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk12-1.png)
 
@@ -58,26 +67,31 @@ delays, the delay times for this airline is relatively low.
 
 I want to separate the airlines into 2 categories. One category for the
 airlines with the top three number of flights in and out of ABIA, and a
-secondary category for all the other airlines. \#### WN(Southwest
-Airlines), AA(American Airlines), and CO(Continental Airlines) Most
-likely, passengers will fly WN, AA, or CO. In terms of cancellation, AA
-has the highest rates of cancellation whereas WN has the lowest rates of
-cancellation. Especially impressive is that WN manages about 1.5 times
-more flights than AA and more than 3 times more flights than CO but
-still has the lowest rates of cancellation. WN has the highest rates of
-delays but generally have lower delay times than the other 2 airlines.
-In general, combining the factors of chances of delay and times of
-delay, there is not an immediately noticeable difference among the 3
-airlines. One important aspect to note is that although past performance
-can give insight, it does not determine what will happen the future as
-can be seen from the recent mass cancellation of WN due to their
-scheduling system failing. Although the weather initially impacted their
-cancellations, the weather caused a major error in their scheduling
-system that resulted in WN cancelling many other flights, leaving
-passengers without a flight for days. \#### All Other Airlines The
-cancellation among all other airlines are varied. For instance, MQ has
-the highest rates of cancellations among all airlines while F9 has the
-lowest. B6 has the highest rates of delays and relatively high delay
+secondary category for all the other airlines.
+
+#### WN(Southwest Airlines), AA(American Airlines), and CO(Continental Airlines)
+
+Most likely, passengers will fly WN, AA, or CO. In terms of
+cancellation, AA has the highest rates of cancellation whereas WN has
+the lowest rates of cancellation. Especially impressive is that WN
+manages about 1.5 times more flights than AA and more than 3 times more
+flights than CO but still has the lowest rates of cancellation. WN has
+the highest rates of delays but generally have lower delay times than
+the other 2 airlines. In general, combining the factors of chances of
+delay and times of delay, there is not an immediately noticeable
+difference among the 3 airlines. One important aspect to note is that
+although past performance can give insight, it does not determine what
+will happen the future as can be seen from the recent mass cancellation
+of WN due to their scheduling system failing. Although the weather
+initially impacted their cancellations, the weather caused a major error
+in their scheduling system that resulted in WN cancelling many other
+flights, leaving passengers without a flight for days.
+
+#### All Other Airlines
+
+The cancellation among all other airlines are varied. For instance, MQ
+has the highest rates of cancellations among all airlines while F9 has
+the lowest. B6 has the highest rates of delays and relatively high delay
 times. F9 has a relatively lower rate of cancellations and delay times.
 The key takeaway is that passengers probably want to avoid MQ when
 flying among the other airlines.
@@ -86,7 +100,7 @@ flying among the other airlines.
 
 ### A. What is the 95th percentile of heights for female competitors across all Athletics events (i.e., track and field)? Note that sport is the broad sport (e.g. Athletics) whereas event is the specific event (e.g. 100 meter sprint).
 
-The below Table shows the 95th percentile of heights for female
+The below Table shows the 95th percentile of heights and for female
 competitors.
 
     ## # A tibble: 1 × 2
