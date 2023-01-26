@@ -8,15 +8,6 @@ given that the cancellation was due to the carrier? 2. Which airlines
 have the least proportion of delays by the carrier? 3. Given that there
 is a delay by the carrier, which airline has the shortest delays?
 
-    ## Rows: 99260 Columns: 29
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## Delimiter: ","
-    ## chr  (5): UniqueCarrier, TailNum, Origin, Dest, CancellationCode
-    ## dbl (24): Year, Month, DayofMonth, DayOfWeek, DepTime, CRSDepTime, ArrTime, ...
-    ## 
-    ## ℹ Use `spec()` to retrieve the full column specification for this data.
-    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-
 ### Flight Cancellations
 
 We can first look at the number of flights by airline. Worthy of note:
@@ -47,7 +38,7 @@ In this graph, you can see the proportion of flights cancelled by the
 carrier to the total number of cancelled flights by that airline.
 ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk5-1.png)
 
-\###Flight Delays
+### Flight Delays
 
 First, I want to keep in mind the total number of flights that each
 airline has.
@@ -96,12 +87,21 @@ flying among the other airlines.
 ### A. What is the 95th percentile of heights for female competitors across all Athletics events (i.e., track and field)? Note that sport is the broad sport (e.g. Athletics) whereas event is the specific event (e.g. 100 meter sprint).
 
 The below Table shows the 95th percentile of heights for female
-competitors across events.
+competitors.
+
+    ## # A tibble: 1 × 2
+    ##     q95    sd
+    ##   <dbl> <dbl>
+    ## 1   186  9.24
 
 ### B. Which single women’s event had the greatest variability in competitor’s heights across the entire history of the Olympics, as measured by the standard deviation?
 
 Rowing Women’s Coxed Fours have the greatest variability as measured by
-standard deviation.
+standard deviation. Also available is the 95th percentile of heights for
+female competitors for each athletic event (only top 10 values of
+standard deviations are shown).
+
+<br/>
 
     ## # A tibble: 132 × 3
     ##    event                                   q95    sd
@@ -134,16 +134,6 @@ overall. However, female swimmers’ ages stayed stagnant from 1925 to
 
 ## 3. K-nearest neighbors: cars
 
-    ## Rows: 29466 Columns: 17
-    ## ── Column specification ────────────────────────────────────────────────────────
-    ## Delimiter: ","
-    ## chr (11): trim, subTrim, condition, color, displacement, fuel, state, region...
-    ## dbl  (5): id, mileage, year, featureCount, price
-    ## lgl  (1): isOneOwner
-    ## 
-    ## ℹ Use `spec()` to retrieve the full column specification for this data.
-    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
-
 ### Split the data into a training and a testing set
 
     #train-test split
@@ -166,18 +156,4 @@ larger optimal value of K because the sample size is bigger.
 In the following plots, we can visualize how well our predicted price
 did compared to the actual price. The scatter plots represent the actual
 prices of the vehicles and the line plots represent the predicted
-prices.
-
-    plot350 <- ggplot(data = sclass350_test) + 
-      geom_point(mapping = aes(x = mileage, y = price)) + 
-      geom_line(mapping = aes(x = mileage, y = predicted_price)) +
-      ggtitle("S Class 350") 
-
-    plot65 <- ggplot(data = sclass65_test) + 
-      geom_point(mapping = aes(x = mileage, y = price)) + 
-      geom_line(mapping = aes(x = mileage, y = predicted_price)) +
-      ggtitle("S Class 65AMG") 
-
-    plot350 + plot65
-
-![](HW1_Albert_Joe_files/figure-markdown_strict/chunk22-1.png)
+prices. ![](HW1_Albert_Joe_files/figure-markdown_strict/chunk22-1.png)
