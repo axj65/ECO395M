@@ -1,0 +1,261 @@
+---
+title: "HW2: Saratoga House Prices"
+output: "md_document"
+date: "2023-02-22"
+---
+
+```{r chunk1, include=FALSE}
+
+#Set Directory
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+#knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/ECO395M/homework/")
+
+#Load Libraries
+library(readr)
+library(tidyverse)
+library(rsample)
+library(caret)
+library(modelr)
+library(parallel)
+library(foreach)
+library(dplyr)
+library(rmarkdown)
+#library(lubridate)
+library(mosaic)
+
+#Load Dataset
+data("SaratogaHouses")
+```
+
+
+## 1. Saratoga House Prices
+
+<br/>
+
+### a. Linear Model to Predict Price
+<br/>
+
+The goal of this exercise is to build a linear model with the lowest RMSE without much regard to interpretability. I will use Stepwise Regression to do so.
+
+<br/>
+
+Stepwise Regression requires an initial selection of variables. I first want to look at some basic plots in order to guide my initial selection of variables. 
+
+<br/>
+```{r chunk2}
+
+#scatterplots on continuous variables
+
+saratoga_numeric <- SaratogaHouses[c("price", "lotSize", "age", "livingArea", "pctCollege", "landValue")]
+
+saratoga_numeric <- saratoga_numeric %>% mutate(price = price/1000)
+saratoga_numeric <- saratoga_numeric %>% mutate(landValue = landValue/1000)
+
+saratoga_numeric %>%
+  gather(-price, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = price)) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    xlab("") +
+    ylab("Price in Thousands of Dollars")
+
+```
+
+<br/>
+```{r chunk3a}
+
+#Boxplots on categorical variables
+
+saratoga_box <- SaratogaHouses[c("price", "fireplaces", "heating", "fuel", "sewer", "waterfront", "centralAir")]
+
+saratoga_box <- saratoga_box %>% mutate(price = price/1000)
+
+saratoga_box %>%
+  gather(-price, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = price)) +
+    geom_boxplot() +
+    facet_wrap(~ var, scales = "free") +
+    theme(axis.text.x = element_text(angle = 45, hjust = .35, vjust = 0.5)) +
+    xlab("") +
+    ylab("Price in Thousands of Dollars")
+
+```
+<br/>
+
+```{r chunk3b}
+
+#Boxplots on categorical variables
+
+saratoga_box2 <- SaratogaHouses[c("price", "bedrooms", "bathrooms", "rooms")]
+
+saratoga_box2 <- saratoga_box2 %>% mutate(price = price/1000)
+
+saratoga_box2 %>%
+  gather(-price, key = "var", value = "value") %>% 
+  ggplot(aes(x = factor(value), y = price)) +
+    geom_boxplot() +
+    facet_wrap(~ var, scales = "free") +
+    theme(axis.text.x = element_text(angle = 45, hjust = .35, vjust = 0.5)) +
+    xlab("") +
+    ylab("Price in Thousands of Dollars")
+
+```
+
+<br/>
+
+For my initial selection of variables, I will not include 'newConstruction' as it is captured in the 'age' variable. I will also not 'sewer' as the boxplot showed no noticeable affect on price. After running Stepwise Regression, my model consists of the following variables and interactions.
+
+```{r chunk 4, include=FALSE}
+
+#Stepwise Regression
+
+#Make initial lm model
+lm1 <- lm(price ~ lotSize + age + landValue + livingArea + pctCollege + bedrooms + fireplaces + bathrooms + rooms + heating + fuel + waterfront + centralAir, data=SaratogaHouses)
+
+#conduct stepwise regression with interactions for each variable and each pair of variables
+stepWise <- step(lm1, scope=~(.)^2)
+getCall(stepWise)
+
+#Create the final output model from the stepwise regression
+lm_step <- lm(formula = price ~ lotSize + age + landValue + livingArea + 
+    pctCollege + bedrooms + fireplaces + bathrooms + rooms + 
+    heating + fuel + waterfront + centralAir + livingArea:centralAir + 
+    landValue:livingArea + age:landValue + livingArea:fuel + 
+    bathrooms:heating + landValue:pctCollege + pctCollege:fireplaces + 
+    livingArea:fireplaces + bedrooms:fireplaces + landValue:fireplaces + 
+    landValue:bathrooms + fireplaces:waterfront + lotSize:waterfront + 
+    fuel:centralAir + age:centralAir + age:pctCollege + lotSize:age + 
+    livingArea:pctCollege + lotSize:landValue + landValue:fuel + 
+    age:bathrooms + rooms:heating + bedrooms:heating, data = SaratogaHouses)
+
+#Medium Model from Class for comparison
+lm_medium <- lm(price ~ . - pctCollege - sewer - waterfront - landValue - newConstruction, data=SaratogaHouses)
+
+```
+
+```{r chunk5}
+getCall(stepWise)
+```
+
+<br/>
+
+I now use K-fold cross validation (5 folds) to compare the medium model from class, a model I created by playing around with transformations and interactions, and the stepwise model. The following shows the average RMSE for the 3 models:
+
+<br/>
+
+```{r chunk6}
+set.rseed(1994)
+
+#Compare models using K-fold cross validation
+K_folds = 5
+
+SaratogaHouses = SaratogaHouses %>%
+  mutate(fold_id = rep(1:K_folds, length=nrow(SaratogaHouses)) %>% sample)
+
+#RMSE of a Model of my creation without steps
+rmse_lm1 = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  lm1 <- lm(price ~ lotSize + age + landValue + livingArea + pctCollege + bedrooms + fireplaces + bathrooms + rooms + heating + fuel +                     waterfront + centralAir,
+                    data=filter(SaratogaHouses, fold_id!=fold))
+  modelr::rmse(lm1, data = filter(SaratogaHouses, fold_id == fold))
+}
+
+#RMSE of Medium Model
+rmse_lm_medium = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  lm_medium <- lm(price ~ . - pctCollege - sewer - waterfront - landValue - newConstruction, 
+                  data=filter(SaratogaHouses, fold_id!=fold))
+  modelr::rmse(lm_medium, data = filter(SaratogaHouses, fold_id == fold))
+}
+
+#RMSE of Stepwise Model
+rmse_lm_step = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  lm_step <- lm(formula = price ~ lotSize + age + landValue + livingArea + 
+    pctCollege + bedrooms + fireplaces + bathrooms + rooms + 
+    heating + fuel + waterfront + centralAir + livingArea:centralAir + 
+    landValue:livingArea + age:landValue + livingArea:fuel + 
+    bathrooms:heating + landValue:pctCollege + pctCollege:fireplaces + 
+    livingArea:fireplaces + bedrooms:fireplaces + landValue:fireplaces + 
+    landValue:bathrooms + fireplaces:waterfront + lotSize:waterfront + 
+    fuel:centralAir + age:centralAir + age:pctCollege + lotSize:age + 
+    livingArea:pctCollege + lotSize:landValue + landValue:fuel + 
+    age:bathrooms + rooms:heating + bedrooms:heating, data=filter(SaratogaHouses, fold_id!=fold))
+  modelr::rmse(lm_step, data = filter(SaratogaHouses, fold_id == fold))
+}
+
+
+cat("Medium Linear Model- Mean RMSE:", mean(rmse_lm_medium),  "\n")
+cat("Hand Selected Linear Model- Mean RMSE:", mean(rmse_lm1), "\n")
+cat("Stepwise Linear Model- Mean RMSE:", mean(rmse_lm_step))
+
+
+```
+
+<br/>
+
+### b. KNN Model to Predict Price
+
+<br/>
+
+In order to conduct KNN, I first used my exploratory data analysis plots to guide selection of initial variables. Then I added and removed variables to test which models returned the lowest RMSE. I then found that the optimal k value for KNN Regression was k=8. 
+
+<br/>
+
+```{r chunk7}
+SaratogaHouses_standardized <- scale(SaratogaHouses[,2:10])
+SaratogaHouses_standardized <- cbind(SaratogaHouses$price, SaratogaHouses_standardized)
+SaratogaHouses_standardized <- cbind(SaratogaHouses_standardized, SaratogaHouses[,11:17])
+colnames(SaratogaHouses_standardized)[1] <- "price"
+```
+
+```{r chunk8}
+#train-test split
+saratoga_split = initial_split(SaratogaHouses_standardized, prop = 0.8)
+saratoga_train = training(saratoga_split)
+saratoga_test = testing(saratoga_split)
+
+#find optimal number for k in KNN
+df_saratoga <- data.frame(K = numeric(), K_RSME = numeric())
+
+for (i in 2:25) {
+  knn_saratoga = knnreg(price ~ livingArea + bedrooms + bathrooms + landValue + age + pctCollege + waterfront + lotSize, 
+                        data = saratoga_train, k = i)
+  k_rsme = rmse(knn_saratoga, saratoga_test)
+  new_row <- data.frame(K = i, K_RSME = k_rsme)
+  df_saratoga <- bind_rows(df_saratoga, new_row)
+}
+
+#Found k=9 is optimal k value
+
+```
+
+Using k=9 and K-fold cross validation with 5 folds, I got an average RMSE of:
+```{r chunk9}
+#Medium RMSE
+rmse_knn_saratoga = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  knn_saratoga = knnreg(price ~ livingArea + bedrooms + bathrooms + landValue + age + pctCollege + waterfront + lotSize, 
+                  data=filter(SaratogaHouses_standardized, fold_id!=fold), k=9)
+  modelr::rmse(knn_saratoga, data = filter(SaratogaHouses_standardized, fold_id == fold))
+}
+
+cat("K Nearest Neighbors- Mean RMSE:", mean(rmse_knn_saratoga))
+
+```
+
+<br/>
+
+### c. Tax Authority Report
+
+<br/>
+
+Overall, the Stepwise Regression Model performed the best in terms of the root mean-squared error (RMSE) with an average RMSE of 57702.23. A hand-selected linear model without any interactions placed second with an average RMSE of 59378.08. The K-Nearest Neighbors (KNN) Regression performed the worst with an average RMSE of 60802.39. So what do these results mean for tax purposes?
+
+<br/>
+
+If the tax authority wants the most accurate prediction for property prices, the Stepwise Regression Model clearly outperforms the other models. However, this model is hardly interpretable due to the many interactions among the various attributes of the home. When homeowners protest the value of their home in order to lower property taxes, this model would be extremely difficult to explain to the court authorities determining whether to decrease the value of a home. Consequently, I recommend using the hand-selected linear model. The difference between the average RMSE is only approximately 1700, whereas the decrease in property values after a homeowner protests have sometimes been greater than 50,000. I purposely hand-selected a model without transformations and interactions because this model is highly interpretable. In other words, the tax authority can point to specific aspects of the home and state the aggregate affect of the various aspects of the home on the price. I would not recommend the KNN model as it performs the worst and has lower interpretability than the hand-selected linear model.
+
+<br/>
+
+Lastly, I do recommend collecting additional data as this will allow for better models and lower RMSEs. In particular, I noticed that there is no neighborhood/zip-code data. For example, downtown properties are usually worth more than other areas. Or there may be particularly affluent zip-codes etc. It is my intuition that this kind of data would improve the KNN model even more than the linear models. Furthermore, how many stories a house has, whether the property has a garage, and whether the property is in a school district could be particularly helpful.
+
+
+
+
