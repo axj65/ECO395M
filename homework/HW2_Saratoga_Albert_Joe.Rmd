@@ -35,11 +35,7 @@ data("SaratogaHouses")
 ### a. Linear Model to Predict Price
 <br/>
 
-The goal of this exercise is to build a linear model with the lowest RMSE without much regard to interpretability. I will use Stepwise Regression to do so.
-
-<br/>
-
-Stepwise Regression requires an initial selection of variables. I first want to look at some basic plots in order to guide my initial selection of variables. 
+The goal of this exercise is to build a linear model with the lowest RMSE without much regard to interpretability. I will use Stepwise Regression to do so. Stepwise Regression requires an initial selection of variables. I first want to look at some basic plots in order to guide my initial selection of variables. 
 
 <br/>
 ```{r chunk2}
@@ -62,7 +58,7 @@ saratoga_numeric %>%
 ```
 
 <br/>
-```{r chunk3a}
+```{r chunk3a, warning=FALSE}
 
 #Boxplots on categorical variables
 

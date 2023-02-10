@@ -8,22 +8,14 @@
 
 The goal of this exercise is to build a linear model with the lowest
 RMSE without much regard to interpretability. I will use Stepwise
-Regression to do so.
-
-<br/>
-
-Stepwise Regression requires an initial selection of variables. I first
-want to look at some basic plots in order to guide my initial selection
-of variables.
+Regression to do so. Stepwise Regression requires an initial selection
+of variables. I first want to look at some basic plots in order to guide
+my initial selection of variables.
 
 <br/>
 ![](HW2_Saratoga_Albert_Joe_files/figure-markdown_strict/chunk2-1.png)
 
 <br/>
-
-    ## Warning: attributes are not identical across measure variables;
-    ## they will be dropped
-
 ![](HW2_Saratoga_Albert_Joe_files/figure-markdown_strict/chunk3a-1.png)
 <br/>
 
