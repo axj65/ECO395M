@@ -13,10 +13,13 @@ of variables. I first want to look at some basic plots in order to guide
 my initial selection of variables.
 
 <br/>
+
 ![](HW2_Saratoga_Albert_Joe_files/figure-markdown_strict/chunk2-1.png)
 
 <br/>
+
 ![](HW2_Saratoga_Albert_Joe_files/figure-markdown_strict/chunk3a-1.png)
+
 <br/>
 
 ![](HW2_Saratoga_Albert_Joe_files/figure-markdown_strict/chunk3b-1.png)
