@@ -1,0 +1,749 @@
+---
+title: "HW2"
+output: "md_document"
+date: "2023-02-22"
+---
+
+```{r, include=FALSE}
+
+#Set Directory
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/ECO395M/homework/")
+
+#Load Libraries
+library(readr)
+library(tidyverse)
+library(rsample)
+library(caret)
+library(modelr)
+library(parallel)
+library(foreach)
+library(dplyr)
+library(rmarkdown)
+library(lubridate)
+library(mosaic)
+library(caret)
+library(gamlr)
+
+#Load Datasets
+data("SaratogaHouses")
+german_credit <- read_csv("Data/german_credit.csv")
+hotels_dev <- read_csv("Data/hotels_dev.csv")
+hotels_val <- read_csv("Data/hotels_val.csv")
+```
+
+
+## 1. Saratoga House Prices
+
+### a. Linear Model to Predict Price
+<br/>
+
+The goal of this exercise is to build a linear model with the lowest RMSE. The first thing to do is to explore the data in order to guide the initial selection of variables for the model. You can find these plots in Appendix 1. I will show three models in this exercise. The first is the model from class, used as a reference. The second is a model with hand-selected variables. The third is a stepwise regression model with all the varialbes included in the second model and their two-way interactions. 
+
+<br/>
+```{r chunk1}
+#Histograms
+saratoga_hist <- SaratogaHouses[c("price", "age", "livingArea", "pctCollege", "lotSize", "landValue")]
+
+saratoga_hist <- saratoga_hist %>% mutate(price = price/1000)
+saratoga_hist <- saratoga_hist %>% mutate(landValue = landValue/1000)
+
+hist_plots <- saratoga_hist %>%
+  gather(key = "var", value = "value") %>% 
+  ggplot(aes(x = value)) +
+    geom_histogram() +
+    facet_wrap(~ var, scales = "free") +
+    xlab("Note: Dollar Values are in Thousands") +
+    ylab("Count")
+```
+
+
+```{r chunk2}
+#scatterplots on continuous variables
+saratoga_numeric <- SaratogaHouses[c("price", "lotSize", "age", "livingArea", "pctCollege", "landValue")]
+
+saratoga_numeric <- saratoga_numeric %>% mutate(price = price/1000)
+saratoga_numeric <- saratoga_numeric %>% mutate(landValue = landValue/1000)
+
+scatter_plots <- saratoga_numeric %>%
+  gather(-price, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = price)) +
+    geom_point() +
+    facet_wrap(~ var, scales = "free") +
+    xlab("") +
+    ylab("Price in Thousands of Dollars")
+```
+
+
+```{r chunk3, warning=FALSE}
+#Boxplots on categorical variables
+saratoga_box <- SaratogaHouses[c("price", "fireplaces", "heating", "fuel", "sewer", "waterfront", "centralAir")]
+
+saratoga_box <- saratoga_box %>% mutate(price = price/1000)
+
+box_plots <- saratoga_box %>%
+  gather(-price, key = "var", value = "value") %>% 
+  ggplot(aes(x = value, y = price)) +
+    geom_boxplot() +
+    facet_wrap(~ var, scales = "free") +
+    theme(axis.text.x = element_text(angle = 45, hjust = .35, vjust = 0.5)) +
+    xlab("") +
+    ylab("Price in Thousands of Dollars")
+```
+
+
+```{r chunk4}
+#Boxplots on categorical variables
+saratoga_box2 <- SaratogaHouses[c("price", "bedrooms", "bathrooms", "rooms")]
+
+saratoga_box2 <- saratoga_box2 %>% mutate(price = price/1000)
+
+box_plots2 <- saratoga_box2 %>%
+  gather(-price, key = "var", value = "value") %>% 
+  ggplot(aes(x = factor(value), y = price)) +
+    geom_boxplot() +
+    facet_wrap(~ var, scales = "free") +
+    theme(axis.text.x = element_text(angle = 45, hjust = .35, vjust = 0.5), aspect.ratio = 2/3) +
+    xlab("") +
+    ylab("Price in Thousands of Dollars")
+```
+
+<br/>
+
+The first model is the medium model from class to use as a reference and consists of the following:
+
+```{r chunk5}
+#Medium Model from Class for comparison
+lm_medium <- lm(price ~ lotSize + age + livingArea + bedrooms + fireplaces + bathrooms + rooms + 
+                  heating + fuel + centralAir, data=SaratogaHouses)
+getCall(lm_medium)
+```
+
+<br/>
+
+The second model is a model of my creation using exploratory data analysis and tinkering with the formula. This model is also used as a starting point for the stepwise regrsesion in the third model. In this model, I did not include 'newConstruction' as it is captured in the 'age' variable. I also did not include 'sewer' as the boxplot showed no noticeable affect on price. The second model consists of the following: 
+
+```{r chunk6}
+#Make initial lm model
+lm1 <- lm(price ~ lotSize + age + landValue + livingArea + pctCollege + bedrooms + fireplaces + 
+            bathrooms + rooms + heating + fuel + waterfront + centralAir, data=SaratogaHouses)
+getCall(lm1)
+```
+
+<br/>
+
+The third model runs stepwise regression with all the variables from the second model and their 2-way interactions. The result of the stepwise regression results in the following formula: 
+
+```{r chunk7, include=FALSE}
+#Select variables using stepwise regression, includes 2 way interactions
+stepWise <- step(lm1, scope=~(.)^2)
+```
+
+```{r chunk8}
+getCall(stepWise)
+```
+
+<br/>
+
+I now use K-fold cross validation (5 folds) to compare all the models. The following shows the average RMSE for the 3 models:
+
+```{r chunk9}
+set.seed(1994)
+
+#Create folds in the dataset
+K_folds = 5
+SaratogaHouses = SaratogaHouses %>%
+  mutate(fold_id = rep(1:K_folds, length=nrow(SaratogaHouses)) %>% sample)
+
+#RMSE of a Model of my creation without steps
+rmse_lm1 = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  lm1 <- lm(price ~ lotSize + age + landValue + livingArea + pctCollege + bedrooms + 
+              fireplaces + bathrooms + rooms + heating + fuel + waterfront + centralAir,
+                    data=filter(SaratogaHouses, fold_id!=fold))
+  modelr::rmse(lm1, data = filter(SaratogaHouses, fold_id == fold))
+}
+
+#RMSE of Medium Model
+rmse_lm_medium = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  lm_medium <- lm(price ~ . - pctCollege - sewer - waterfront - landValue - newConstruction, 
+                  data=filter(SaratogaHouses, fold_id!=fold))
+  modelr::rmse(lm_medium, data = filter(SaratogaHouses, fold_id == fold))
+}
+
+#RMSE of Stepwise Model
+rmse_lm_step = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  lm_step <- lm(formula = price ~ lotSize + age + landValue + livingArea + 
+    pctCollege + bedrooms + fireplaces + bathrooms + rooms + 
+    heating + fuel + waterfront + centralAir + livingArea:centralAir + 
+    landValue:livingArea + age:landValue + livingArea:fuel + 
+    bathrooms:heating + landValue:pctCollege + pctCollege:fireplaces + 
+    livingArea:fireplaces + bedrooms:fireplaces + landValue:fireplaces + 
+    landValue:bathrooms + fireplaces:waterfront + lotSize:waterfront + 
+    fuel:centralAir + age:centralAir + age:pctCollege + lotSize:age + 
+    livingArea:pctCollege + lotSize:landValue + landValue:fuel + 
+    age:bathrooms + rooms:heating + bedrooms:heating, data=filter(SaratogaHouses, fold_id!=fold))
+  modelr::rmse(lm_step, data = filter(SaratogaHouses, fold_id == fold))
+}
+
+
+cat("Model 1 (Medium Linear Model)- Mean RMSE:", mean(rmse_lm_medium),  "\n")
+cat("Model 2 (Hand Selected Linear Model)- Mean RMSE:", mean(rmse_lm1), "\n")
+cat("Model 3 (Stepwise Linear Model)- Mean RMSE:", mean(rmse_lm_step))
+
+
+```
+
+<br/>
+
+### b. KNN Model to Predict Price
+
+<br/>
+
+In order to conduct KNN, I first used my exploratory data analysis plots to guide selection of initial variables. I then used Z-score scaling to scale all the parameters. Lastly, I added and removed variables to test which models returned the lowest RMSE. 
+
+<br/>
+
+```{r chunk10}
+#Scale the variables for KNN
+
+#Scale continuous variables (note response variable, price, and categorical variables are not scaled)
+SaratogaHouses_standardized <- scale(SaratogaHouses[,2:10])
+
+#Binds price, the scaled variables, and categorical variables back into a single dataframe
+SaratogaHouses_standardized <- cbind(SaratogaHouses$price, SaratogaHouses_standardized)
+SaratogaHouses_standardized <- cbind(SaratogaHouses_standardized, SaratogaHouses[,11:17])
+colnames(SaratogaHouses_standardized)[1] <- "price"
+```
+
+```{r chunk11}
+set.seed(1994)
+
+#Only purpose of this segment of code is to get an approximate optimal k-value for KNN
+
+#train-test split
+saratoga_split = initial_split(SaratogaHouses_standardized, prop = 0.8)
+saratoga_train = training(saratoga_split)
+saratoga_test = testing(saratoga_split)
+
+#find optimal number for k in KNN
+df_saratoga <- data.frame(K = numeric(), K_RSME = numeric())
+
+for (i in 2:25) {
+  knn_saratoga = knnreg(price ~ livingArea + bedrooms + bathrooms + landValue + 
+                          age + pctCollege + waterfront + lotSize, 
+                        data = saratoga_train, k = i)
+  k_rsme = rmse(knn_saratoga, saratoga_test)
+  new_row <- data.frame(K = i, K_RSME = k_rsme)
+  df_saratoga <- bind_rows(df_saratoga, new_row)
+}
+
+#Found that around k=9 is optimal k value
+```
+
+
+```{r chunk12}
+set.seed(1994)
+
+#Medium Model RMSE
+rmse_knn_saratoga = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  knn_saratoga = knnreg(price ~ livingArea + bedrooms + bathrooms + landValue + age + pctCollege + waterfront + lotSize, 
+                  data=filter(SaratogaHouses_standardized, fold_id!=fold), k=10)
+  modelr::rmse(knn_saratoga, data = filter(SaratogaHouses_standardized, fold_id == fold))
+}
+
+cat("Using k=10 and K-fold cross validation with 5 folds, I got an average RMSE of:", mean(rmse_knn_saratoga))
+```
+
+<br/>
+
+### c. Tax Authority Report
+
+<br/>
+
+Overall, the Stepwise Regression Model performed the best in terms of the root mean-squared error (RMSE) with an average RMSE of 57702.23. A hand-selected linear model without any interactions placed second with an average RMSE of 59378.08. The K-Nearest Neighbors (KNN) Regression performed the worst with an average RMSE of 60597.08. So what do these results mean for tax purposes?
+
+<br/>
+
+If the tax authority wants the most accurate prediction for property prices, the Stepwise Regression Model clearly outperforms the other models. However, this model is hardly interpretable due to the many interactions among the various attributes of the home. When homeowners protest the value of their home in order to lower property taxes, this model would be extremely difficult to explain to the court authorities determining whether to decrease the value of a home. Consequently, I recommend doing further analysis on and possibly using the hand-selected linear model. The difference between the average RMSE is only approximately 1700, whereas the decrease in property values after a homeowner protests have sometimes been greater than 50,000. I purposely hand-selected a model without transformations and interactions because this model is highly interpretable. In other words, the tax authority can point to specific aspects of the home and state the aggregate affect of the various aspects of the home on the price. However, I would need to do more analysis in regards to the assumptions of linearity, independence, homoscedasticity, and normality. At this point in the analysis, the KNN model has the best interpretability as one can just say we used the following variables and chose the houses that most resembled the homeowner's house in those aspects. In short, use the stepwise model if the only goal is to lower RMSE. Look more into the hand selected model if the goal is to know the affect of each parameter of the house price. Use KNN if the model needs to be interpretable and is needed immediately to evaluate home prices. 
+
+<br/>
+
+Lastly, I do recommend collecting additional data as this will allow for better models and lower RMSEs. In particular, I noticed that there is no neighborhood/zip-code data. For example, downtown properties are usually worth more than other areas. Or there may be particularly affluent zip-codes etc. It is my intuition that this kind of data would significantly improve the KNN model as well as improve the linear models. Furthermore, how many stories a house has, whether the property has a garage, and whether the property is in a school district could be particularly helpful.
+
+<br/>
+
+## 2. Classification and Retrospective Sampling
+
+### a. Make a bar plot of default probability by credit history
+
+We can see in the bar plot below that in this dataset, people with good credit history has the highest probability of default and people with terrible credit history had the lowest probability of default. This is likely due to the way the bank chose to sample the data. 
+
+<br/>
+
+```{r chunk13}
+
+#Create column with credit history
+credit_history <- c("terrible", "poor", "good")
+
+#Create column with default probabilities
+default_probability <- c(
+  german_credit %>% filter(history=="terrible") %>% summarise(probability = mean(Default)) %>% pull(probability),
+  german_credit %>% filter(history=="poor") %>% summarise(probability = mean(Default)) %>% pull(probability),
+  german_credit %>% filter(history=="good") %>% summarise(probability = mean(Default)) %>% pull(probability)
+)
+
+#Combine columns into one dataframe
+df_default <- data.frame(credit_history, default_probability)
+
+#Barplot the data
+ggplot(data = df_default, aes(x = credit_history, y = default_probability)) + geom_bar(stat = "identity") +
+  scale_y_continuous(limits = c(0,1)) + 
+  xlab("Credit History") + 
+  ylab("Default Probability") + 
+  ggtitle("Default Probability Based on Credit History")
+```
+
+<br/>
+
+
+### b. Build a logistics regression model for predicting default probability
+
+Using the variables specified on the homework assignment, I created a logistic regression model. The logistics regression model returns coefficients in log odds. I have converted the coefficients back to odds in the output below. As can be seen from the output below, those with poor history and terrible history in this model actually reduce the probability that a given person would default. 
+
+<br/>
+
+
+```{r chunk14}
+set.seed(1994)
+
+#Create train-test splits
+credit_split = initial_split(german_credit, prop = 0.8)
+credit_train = training(credit_split)
+credit_test = testing(credit_split)
+
+#Logistic Regression using training data
+glm_default <- glm(Default ~ duration + amount + installment + age + history + purpose + foreign, 
+                   data = credit_train, family = 'binomial')
+
+exp(coef(glm_default)) %>% round(3)
+```
+
+Before comparing models, we should always look at the base rate. The following table shows the number of those that defaulted vs the number of those that did not default. From the table, we can see that if were to just predict that no one would default, we would get a 69% accuracy rate. 
+
+```{r chunk15}
+table(credit_test$Default)
+```
+
+
+Now taking a look at the confusion matrix (setting the threshold at 0.5), we can see that the model does not perform very well using this data. Below shows the results of a confusion matrix on the out of sample predictions. Especially concerning is the fact that out of the 62 people who actually defaulted on their loan, this model predicted that 46 of those would not default. 
+
+```{r chunk16}
+
+#Confusion matrix of testing data using threshold of 0.5 and 
+phat_test_default <- predict(glm_default, credit_test, type = 'response')
+yhat_test_default <- ifelse(phat_test_default > 0.50, 1, 0) 
+confusion_in = table(y = credit_test$Default, yhat = yhat_test_default)
+confusion_in
+```
+
+```{r chunk17}
+
+#accuracy of the confusion matrix displayed above
+accuracy_1 <- sum(diag(confusion_in))/sum(confusion_in)
+
+#Use 5 folds to conduct cross validation using the 'caret' package
+train_control <- trainControl(method = "cv", number = 5)
+model <- train(factor(Default) ~ duration + amount + installment + age + history + purpose + foreign, 
+                   data = german_credit, method = "glm", family = "binomial", trControl = train_control)
+#average accuracy of the 5 folds
+accuracy_2 <- model$results$Accuracy
+
+cat("Using just one train-test split, the out of sample accuracy is:", accuracy_1,  "\n")
+cat("Using 5 folds, the average out of sample accuracy is", accuracy_2)
+
+```
+
+
+<br/>
+
+We can see from the 'history' variable in this logistic regression model that having a poor credit history reduces the odds of defaulting by a factor of more than 3, and having a terrible credit score reduces the odds of default by a factor of more than 6. This is because bank substantially over sampled the population of people who defaulted on the loan. Consequently, this data set would not be appropriate in building a predictive model because the data set is not representative of the population of people who borrow from this bank. Using this data to for prediction yielded an accuracy that is essentially no different than not building a predictive model at all and just predicting that no one would default. This data may be helpful during exploratory data analysis to see what factors may possible contribute to defaults on loans. 
+
+<br/>
+
+Since the bank collects data on all of its customers, I would recommend that the bank use the population or a randomly selected subset of the population to design a predictive model. 
+
+
+## 3. Children and Hotel Reservations
+
+### a. Model Building
+
+Again, when building predictive models, we should always keep in mind the base rate (shown in the table below). We note that approximately 91.92% of guests do not bring children so by not building any model and just predicting that no guests would bring children, our accuracy would be 91.92%. 
+
+```{r chunk18}
+set.seed(1994)
+
+#Create Folds in dataset
+K_folds <- 5
+hotels_dev = hotels_dev %>%
+  mutate(fold_id = rep(1:K_folds, length=nrow(hotels_dev)) %>% sample)
+
+#Show the base rate
+table(hotels_dev$children)
+```
+
+
+All the subsequent models show the accuracy using K-fold Cross Validation (with 5 folds). For example, when using folds 1-4 as the training set, I generate predictions for fold 5. I loop through all the folds (so each fold serves as a test set when generating particular predictions for data in that fold) to generate out of sample predictions for all the data in the hotels_dev data set.
+
+<br/>
+
+The following show the confusion matrix and accuracy for the baseline 1 model. Note that this model just predicted that no one would bring children yielding the same 91.92% accuracy as the base rate.
+
+```{r chunk19}
+
+#Create an empty dataframe with the same column names as the hotels_dev dataset
+#I will use this to continue to append the out of sample predicted values into this dataset
+df_baseline1 <- data.frame(matrix(ncol = ncol(hotels_dev), nrow = 0))
+colnames(df_baseline1) <- colnames(hotels_dev)
+
+for (i in 1:K_folds) {
+  #Generate Logit Model with the folds that are currently serving as the training data
+  glm_baseline1 <- glm(children ~ market_segment + adults + customer_type + is_repeated_guest, data=filter(hotels_dev, fold_id!=i))
+  
+  #Create a dataframe of the fold that is serving as the test set
+  baseline1_test <- hotels_dev %>% filter(fold_id == i)
+  
+  #Generate predictions for the test set
+  baseline1_test$phat <- predict(glm_baseline1, newdata = baseline1_test , type = 'response')
+  baseline1_test$yhat <- ifelse(baseline1_test$phat > 0.50, 1, 0) 
+  
+  #Append the data with predictions to the empty dataframe
+  df_baseline1 <- rbind(df_baseline1, baseline1_test)
+  
+}
+
+#Create confusion matrix 
+confusion_baseline1 = table(y = df_baseline1$children, yhat = df_baseline1$yhat)
+confusion_baseline1
+```
+
+```{r chunk20}
+#Calculate accuracy
+sum(diag(confusion_baseline1))/sum(confusion_baseline1)
+```
+
+
+The following show the confusion matrix and accuracy of the baseline 2 model. Note that the accuracy for this model increased slightly to 93.47%. 
+
+```{r chunk21}
+#Refer to comments from chunk19. 
+#Same logic/code as baseline 1 but model is from baseline 2
+
+df_baseline2 <- data.frame(matrix(ncol = ncol(hotels_dev), nrow = 0))
+colnames(df_baseline2) <- colnames(hotels_dev)
+
+for (i in 1:K_folds) {
+  glm_baseline2 <- glm(children ~ . - arrival_date - fold_id, data=filter(hotels_dev, fold_id!=i))
+  baseline2_test <- hotels_dev %>% filter(fold_id == i)
+  baseline2_test$phat <- predict(glm_baseline2, newdata = baseline2_test , type = 'response')
+  baseline2_test$yhat <- ifelse(baseline2_test$phat > 0.5, 1, 0) 
+  df_baseline2 <- rbind(df_baseline2, baseline2_test)
+}
+
+confusion_baseline2 = table(y = df_baseline2$children, yhat = df_baseline2$yhat)
+confusion_baseline2
+```
+
+```{r chunk22}
+#Calculate Accuracy of baseline2 model
+sum(diag(confusion_baseline2))/sum(confusion_baseline2)
+```
+
+
+Now I build my own model using Lasso Regression. However, I first modified the datasets to include a binary variable called 'weekend' if the arrival date is either Friday, Saturday, or Sunday. I also added a categorical variable called 'month' from the arrival_date. The following show the accuracy of my model using lasso regression. This lasso regression ran all variables and their two-way interactions. We see that our accuracy increase to 94.22%.
+
+```{r chunk23}
+#Add binary variables called 'weekend' and 'month from 'arrival_date' into both datasets
+hotels_dev <- hotels_dev %>% 
+  mutate(weekend = ifelse(wday(arrival_date) %in% c(1,6,7), 1, 0)) %>% 
+  mutate(month=month(arrival_date))
+
+hotels_val <- hotels_val %>% 
+  mutate(weekend = ifelse(wday(arrival_date) %in% c(1,6,7), 1, 0)) %>% 
+  mutate(month=month(arrival_date))
+
+#In subsequent analysis, treat 'month' variable as categorical
+hotels_dev$month <- as.factor(hotels_dev$month)
+hotels_val$month <- as.factor(hotels_val$month)
+
+#Remove the 2 data points where reserve_room_type is L
+hotels_dev<- hotels_dev %>% filter(reserved_room_type != "L")
+hotels_val<- hotels_val %>% filter(reserved_room_type != "L")
+```
+
+
+```{r chunk24}
+#Create an empty dataframe with the same column names as the hotels_dev dataset
+#I will use this to continue to append the out of sample predicted values into this dataset
+df_dev <- data.frame(matrix(ncol = ncol(hotels_dev), nrow = 0))
+colnames(df_dev) <- colnames(hotels_dev)
+
+#One hot encoding for the data than converts data back into dataframe
+hotels_dev_onehot <- data.frame(model.matrix(~ . -1, data = hotels_dev))
+
+for (i in 1:K_folds) {
+  
+  #Create train test splits based on fold_id
+  dev_train <- hotels_dev_onehot %>% filter(fold_id != i)
+  dev_test <- hotels_dev_onehot %>% filter(fold_id == i)
+  
+  #Create the matrix of the test data/fold
+  #Note dimensions need to match dev_x
+  dev_test_lasso <- model.matrix(children~ (. -arrival_date -fold_id -1)^2, data = dev_test)
+  
+  #Create x variables and y response variable to use in gamlr lasso regression
+  #Note that dev_x and dev_y matrices use only the training set
+  dev_x <- model.matrix(children ~ (. -arrival_date - fold_id -1)^2,
+                        data=dev_train) 
+  dev_y = dev_train$children
+  
+  #Create lasso regression model with training data
+  dev_lasso_lm <- gamlr(dev_x, dev_y, family = "binomial")
+  
+  #Predict values for the testing data/fold 
+  dev_test$phat <- predict(dev_lasso_lm, newdata = dev_test_lasso, type = 'response')
+  dev_test$yhat <- ifelse(dev_test$phat > 0.5, 1, 0) 
+  
+  #Append the data with predictions to the empty dataframe
+  df_dev <- rbind(df_dev, dev_test)
+}
+
+#Create confusion matrix
+confusion_dev = table(y = df_dev$children, yhat = df_dev$yhat)
+confusion_dev
+```
+
+```{r chunk25}
+#Calculate Accuracy
+sum(diag(confusion_dev))/sum(confusion_dev)
+
+#hotels_dev_onehot <- data.frame(model.matrix(children~ (. -arrival_date -fold_id -1)^2, data = hotels_dev))
+#hotels_val_onehot <- data.frame(model.matrix(children~ (. -arrival_date -1)^2, data = hotels_val))
+
+#dev_x <- data.frame(model.matrix(~ . -1,
+#                        data=hotels_dev_onehot)) 
+
+#val_lasso <- data.frame(model.matrix(~ . -1, data = hotels_val_onehot))
+```
+
+
+### b. Model Validation
+
+Now is time for model validation. As always, we first look at the base rate. We also see that the baseline 1 model just predicts that there would be no children yielding an accuracy of 91.96%.
+```{r chunk26}
+table(hotels_val$children)
+```
+
+```{r chunk27}
+glm_baseline1 <- glm(children ~ market_segment + adults + customer_type + is_repeated_guest, data=hotels_dev)
+
+hotels_val$phat <- predict(glm_baseline1, newdata = hotels_val, type = 'response')
+hotels_val$yhat <- ifelse(hotels_val$phat > 0.50, 1, 0) 
+  
+
+#Create confusion matrix 
+confusion_baseline1 = table(y = hotels_val$children, yhat = hotels_val$yhat)
+confusion_baseline1
+```
+
+```{r chunk28}
+sum(diag(confusion_baseline1))/sum(confusion_baseline1)
+```
+
+```{r chunk29, include=FALSE}
+hotels_dev <- read_csv("Data/hotels_dev.csv")
+hotels_val <- read_csv("Data/hotels_val.csv")
+```
+
+
+```{r chunk30}
+glm_baseline2 <- glm(children ~ . -arrival_date, data=hotels_dev)
+
+hotels_val$phat <- predict(glm_baseline2, newdata = hotels_val, type = 'response')
+hotels_val$yhat <- ifelse(hotels_val$phat > 0.50, 1, 0) 
+  
+#Create confusion matrix 
+confusion_baseline2 = table(y = hotels_val$children, yhat = hotels_val$yhat)
+confusion_baseline2
+```
+
+```{r chunk31}
+sum(diag(confusion_baseline2))/sum(confusion_baseline2)
+```
+
+```{r chunk32, include=FALSE}
+#Re-initiate data
+
+hotels_dev <- read_csv("Data/hotels_dev.csv")
+hotels_val <- read_csv("Data/hotels_val.csv")
+
+#Add binary variables called 'weekend' and 'month from 'arrival_date' into both datasets
+hotels_dev <- hotels_dev %>% 
+  mutate(weekend = ifelse(wday(arrival_date) %in% c(1,6,7), 1, 0)) %>% 
+  mutate(month=month(arrival_date))
+
+hotels_val <- hotels_val %>% 
+  mutate(weekend = ifelse(wday(arrival_date) %in% c(1,6,7), 1, 0)) %>% 
+  mutate(month=month(arrival_date))
+
+#In subsequent analysis, treat 'month' variable as categorical
+hotels_dev$month <- as.factor(hotels_dev$month)
+hotels_val$month <- as.factor(hotels_val$month)
+
+#Remove the 2 data points where reserve_room_type is L
+hotels_dev<- hotels_dev %>% filter(reserved_room_type != "L")
+hotels_val<- hotels_val %>% filter(reserved_room_type != "L")
+```
+
+Using the lasso regression model with 2-way interactions, the validation set yielded an accuracy of 94.42%,almost a whole percentage point increase over the baseline 2 model.
+
+```{r chunk33}
+
+#Create the matrix of the test data/fold
+#Note dimensions need to match dev_x
+hotels_dev_onehot <- data.frame(model.matrix(children~ (. -arrival_date -1)^2, data = hotels_dev))
+hotels_val_onehot <- data.frame(model.matrix(children~ (. -arrival_date -1)^2, data = hotels_val))
+
+dev_x <- model.matrix(~ . -1, data=hotels_dev_onehot)
+dev_y = hotels_dev$children
+
+val_lasso <- model.matrix(~ . -1, data = hotels_val_onehot)
+
+  
+#Create x variables and y response variable to use in gamlr lasso regression
+#Note that dev_x and dev_y matrices use only the training set
+#dev_x <- model.matrix(children ~ (. -arrival_date - fold_id -1)^2,
+#                        data=hotels_dev) 
+#dev_y = hotels_dev$children
+  
+#Create lasso regression model with training data
+dev_lasso_lm <- gamlr(dev_x, dev_y, family = "binomial")
+  
+#Predict values for the testing data/fold 
+hotels_val$phat <- predict(dev_lasso_lm, newdata = val_lasso, type = 'response')
+hotels_val$yhat <- ifelse(hotels_val$phat > 0.5, 1, 0) 
+
+#Create confusion matrix
+confusion_val = table(y = hotels_val$children, yhat = hotels_val$yhat)
+confusion_val
+
+```
+
+```{r chunk34}
+#Calculate Accuracy
+sum(diag(confusion_val))/sum(confusion_val)
+```
+
+
+```{r chunk35}
+thresh_grid = seq(0.001, 0.099, by=0.001)
+
+roc_curve_lasso = foreach(thresh = thresh_grid, .combine='rbind') %do% {
+  yhat_val = ifelse(hotels_val$phat >= thresh, 1, 0)
+
+  # FPR, TPR for linear model
+  confusion_out_lasso = table(y = hotels_val$children, yhat = yhat_val)
+
+  out_lasso = data.frame(model = "lasso",
+                       TPR = confusion_out_lasso[2,2]/sum(hotels_val$children==1),
+                       FPR = confusion_out_lasso[1,2]/sum(hotels_val$children==0))
+  
+} %>% as.data.frame()
+  
+  
+
+ggplot(roc_curve_lasso) + 
+  geom_line(aes(x=FPR, y=TPR, color=model)) + 
+  labs(title="ROC Curve for Lasso Model") +
+  theme_bw(base_size = 10)
+```
+
+We can also see that the threshold to set in order to get the most accurate predictions for the validation set is 0.51 yielding a slightly greater accuracy of 94.44%. This is very minor and could be due to randomness in the data. However, this re-affirms that the most accurate threshold is approximately 0.5.
+
+```{r chunk36}
+thresh_grid = seq(0.01, 0.99, by=0.01)
+
+accuracy_threshold = foreach(thresh = thresh_grid, .combine='rbind') %do% {
+  yhat_val = ifelse(hotels_val$phat >= thresh, 1, 0)
+
+  # FPR, TPR for linear model
+  confusion_out_lasso = table(y = hotels_val$children, yhat = yhat_val)
+
+  accuracy_lasso <- sum(diag(confusion_out_lasso))/sum(confusion_out_lasso)
+  
+  if (thresh == 0.01) {
+    most_accurate = accuracy_lasso
+    best_thresh = thresh
+  } else {
+    if (most_accurate < accuracy_lasso) {
+      most_accurate = accuracy_lasso
+      best_thresh = thresh
+    }
+  }
+  
+} %>% as.data.frame()
+
+# print results
+cat("Best threshold:", best_thresh, "\n")
+cat("Accuracy using best threshold:", most_accurate, "\n")
+```
+
+To get a better understanding of how well my model performs, I use the hotels_val set to create 20 folds. In each fold, I calculated the actual number of bookings with children, the expected number of bookings with children, and the accuracy. The table below summarizes these results. Note that the base rate prediction (predicting all adults) yielded a 91.96% accuracy. My model performed better than the base rate prediction in 18 out of 20 folds. 
+
+```{r chunk37}
+#Create train-test splits
+set.seed(1994)
+
+#Create Folds in dataset
+K_folds <- 20
+hotels_val <- hotels_val %>%
+  mutate(fold_id = rep(1:K_folds, length=nrow(hotels_val)) %>% sample)
+
+```
+
+
+```{r chunk38}
+
+fold_number <- numeric()
+estimated_bookings <- numeric()
+actual_bookings <- numeric()
+fold_accuracy <- numeric()
+
+for (i in 1:K_folds) {
+  
+  #Select only data from current fold
+  hotels_val_fold <- hotels_val %>% filter(fold_id == i)
+  
+  fold_number <- c(fold_number, i)
+  estimated_bookings <- c(estimated_bookings, sum(hotels_val_fold$phat))
+  actual_bookings <- c(actual_bookings, sum(hotels_val_fold$children))
+  
+  confusion_fold = table(y = hotels_val_fold$children, yhat = hotels_val_fold$yhat)
+  fold_accuracy <- c(fold_accuracy, sum(diag(confusion_fold))/sum(confusion_fold))
+}
+
+df <- data.frame(fold_number, actual_bookings, estimated_bookings, fold_accuracy)
+
+df <- df %>% round(4)
+
+print(df)
+```
+
+## 4. Appendix of EDA Plots for Saratoga
+
+```{r chunk39}
+scatter_plots
+box_plots
+box_plots2
+```
+
+
