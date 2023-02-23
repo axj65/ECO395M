@@ -111,14 +111,17 @@ this model is highly interpretable. In other words, the tax authority
 can point to specific aspects of the home and state the aggregate affect
 of the various aspects of the home on the price. However, I would need
 to do more analysis in regards to the assumptions of linearity,
-independence, homoscedasticity, and normality. At this point in the
-analysis, the KNN model has the best interpretability as one can just
-say we used the following variables and chose the houses that most
-resembled the homeowner’s house in those aspects. In short, use the
-stepwise model if the only goal is to lower RMSE. Look more into the
-hand selected model if the goal is to know the affect of each parameter
-of the house price. Use KNN if the model needs to be interpretable and
-is needed immediately to evaluate home prices.
+independence, homoscedasticity, and normality.
+
+<br/>
+
+At this point in the analysis, the KNN model has the best
+interpretability as one can just say we used the following variables and
+chose the houses that most resembled the homeowner’s house in those
+aspects. In short, use the stepwise model if the only goal is to lower
+RMSE. Look more into the hand selected model if the goal is to know the
+affect of each parameter of the house price. Use KNN if the model needs
+to be interpretable and is needed immediately to evaluate home prices.
 
 <br/>
 
@@ -212,7 +215,13 @@ see what factors may possible contribute to defaults on loans.
 
 Since the bank collects data on all of its customers, I would recommend
 that the bank use the population or a randomly selected subset of the
-population to design a predictive model.
+population to design a predictive model. In particular, the bank has an
+imbalanced classification problem. One way to deal with this is to
+conduct random over-sampling, random under-sampling, or both. The bank
+does need to ensure that it is not over over-sampling or over
+under-sampling in their re-sample. Other techniques could involve using
+different methods and techniques from the logistic regression model used
+in this assignment.
 
 ## 3. Children and Hotel Reservations
 
