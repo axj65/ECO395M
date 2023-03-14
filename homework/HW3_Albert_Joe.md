@@ -54,15 +54,11 @@ uses data that removes all rows with NaN values (removes 214 rows).
 Model\_2 for each method uses data that removes 60 rows with NaN values
 and also removes the ndvi\_nw variable.
 
-<br/>
-
 For both models, I hold out 25% of the data as a test set.
-
-<br/>
 
 ### a. CART
 
-The following show the RMSE for the CART Model for both models:
+The following show the RMSE for the CART method for both models:
 
     ## CART in-sample RMSE (Model_1): 30.83161
 
@@ -72,11 +68,9 @@ The following show the RMSE for the CART Model for both models:
 
     ## CART out-of-sample RMSE (Model_2): 28.60888
 
-<br/>
-
 ### b. Random Forest
 
-The following show the RMSE of the Random Forest models:
+The following show the RMSE of the Random Forest method for both models:
 
     ## Random Forest in-sample RMSE (Model_1): 12.18154
 
@@ -86,13 +80,11 @@ The following show the RMSE of the Random Forest models:
 
     ## Random Forest out-of-sample RMSE (Model_2): 25.393
 
-<br/>
-
 ### c. Gradient\_boosted Trees
 
-The following show the RMSE of the Gradient-boosted Tree models. This
-method has the lowest RMSEs. Model\_2 has the lowest RMSE of all models
-performed thus far.
+The following show the RMSE of the Gradient-boosted Tree method for both
+models. This method has the lowest RMSEs. Model\_2 has the lowest RMSE
+of all models performed thus far.
 
     ## Using 199 trees...
 
@@ -113,6 +105,6 @@ performed thus far.
 ### d. Partial Dependence Plots of Gradient\_boosted Trees for Model\_2
 
 Note that the gbm function used 182 trees above, so the following
-partial dependence plots have n.trees set to 182,
+partial dependence plots have n.trees set to 182.
 
 ![](HW3_Albert_Joe_files/figure-markdown_strict/chunk9-1.png)![](HW3_Albert_Joe_files/figure-markdown_strict/chunk9-2.png)![](HW3_Albert_Joe_files/figure-markdown_strict/chunk9-3.png)
