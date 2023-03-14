@@ -88,6 +88,8 @@ of all models performed thus far.
 
     ## Gradient-boosted Tree out-of-sample RMSE (Model_1): 26.41055
 
+<br/>
+
     ## Using 182 trees...
 
     ## Gradient-boosted Tree in-sample RMSE (Model_2): 22.52997
