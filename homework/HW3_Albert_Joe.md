@@ -9,9 +9,7 @@
     results as well (it may even show that more police correlate with
     higher crime).
 
-<br/>
-
-1.  The researchers were able to isolate this affect by using a natural
+2.  The researchers were able to isolate this affect by using a natural
     experiment. They found no relationship between high terror alert
     days and crime. On high-alert days, there were more police because
     not because of crime so the researchers could isolate the affect of
@@ -20,9 +18,7 @@
     true population value of the coefficients to be found within 95% of
     the samples (99% for the 1% level).
 
-<br/>
-
-1.  They wanted to ensure that the effect of metro ridership (a proxy
+3.  They wanted to ensure that the effect of metro ridership (a proxy
     for how many people are out and about) did not change. This is
     because if there are significantly less people out on high-alert
     days, then crime could potentially be lower because less criminals
@@ -30,9 +26,7 @@
     less people able to observe crimes being committed. Either way, that
     would confound the results of the variable of interest.
 
-<br/>
-
-1.  The model being estimated here shows the effect of high-alert days
+4.  The model being estimated here shows the effect of high-alert days
     (meaning more police) on District 1 and all other districts,
     controlling for midday ridership. The results show that there is a
     statistically significant reduction in crime for District 1 on
