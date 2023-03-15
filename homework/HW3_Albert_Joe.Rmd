@@ -1,0 +1,203 @@
+---
+title: "HW3"
+output: "md_document"
+date: "2023-03-23"
+---
+
+```{r setup, include=FALSE}
+
+#Set Directory
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/ECO395M/homework/")
+
+#Load Libraries
+library(readr)
+library(tidyverse)
+library(rsample)
+#library(caret)
+library(modelr)
+#library(parallel)
+#library(foreach)
+library(dplyr)
+library(rmarkdown)
+library(lubridate)
+#library(mosaic)
+#library(gamlr)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+library(pdp)
+```
+
+## 1. What Causes What?
+
+1. All cities are different, and the circumstances of an increased number of matter in terms of answering the question of how more cops affect street crime. Just because more police lowers crime rate in one city does not mean that it does so in another. So aggregating different cities could confound the results. Furthermore, increasing police because of expected higher crime rates might confound the results as well (it may even show that more police correlate with higher crime). 
+
+2. The researchers were able to isolate this affect by using a natural experiment. They found no relationship between high terror alert days and crime. On high-alert days, there were more police because not because of crime so the researchers could isolate the affect of police number on crime. The table basically shows that if multiple samples were drawn from the same population, we would expect the true population value of the coefficients to be found within 95% of the samples (99% for the 1% level).  
+
+3. They wanted to ensure that the effect of metro ridership (a proxy for how many people are out and about) did not change. This is because if there are significantly less people out on high-alert days, then crime could potentially be lower because less criminals are on the street or could potentially be higher because there are less people able to observe crimes being committed. Either way, that would confound the results of the variable of interest. 
+
+4. The model being estimated here shows the effect of high-alert days (meaning more police) on District 1 and all other districts, controlling for midday ridership. The results show that there is a statistically significant reduction in crime for District 1 on high-alert days but not all other districts (grouped together). I am not sure if District 1 had more police on high-alert days but the other districts did not as this could further support the conclusion that more police reduces crime rates. Or if there were more police in all districts, it could mean indicate that more police may reduce crime rates in some areas but not others. 
+
+<br/>
+
+## 2. Tree Modeling: Dengue Cases
+
+In this section, I use 3 methods (CART, Random Forest, and Gradient-boosted Trees) to predict dengue cases. For each method, I create and display the results of two models. Model_1 for each method uses data that removes all rows with NaN values (removes 214 rows). Model_2 for each method uses data that removes 60 rows with NaN values and also removes the ndvi_nw variable. 
+
+For both models, I hold out 25% of the data as a test set. 
+
+
+### a. CART
+
+```{r chunk1, include=FALSE}
+#Set Seed and Load Datasets
+set.seed(9456)
+dengue <- read_csv("Data/dengue.csv")
+
+#separate training and  validation data
+dengue_split = initial_split(dengue, prop = 0.75)
+dengue_train = training(dengue_split)
+dengue_test = testing(dengue_split)
+
+#Dataset with all NaN values dropped
+dengue2 <- drop_na(dengue)
+dengue2_split = initial_split(dengue2, prop = 0.75)
+dengue2_train = training(dengue2_split)
+dengue2_test = testing(dengue2_split)
+
+#Dataset with some NaN values dropped and all the ndvi variables dropped
+dengue3 <- dengue[complete.cases(dengue$precipitation_amt), ]
+dengue3 <- dengue3[complete.cases(dengue3$ndvi_nw), ]
+dengue3 <- subset(dengue3, select = -c(ndvi_ne))
+dengue3_split = initial_split(dengue3, prop = 0.75)
+dengue3_train = training(dengue3_split)
+dengue3_test = testing(dengue3_split)
+
+```
+
+```{r chunk2}
+#Create tree for two models
+dengue_tree2 <- rpart(total_cases ~ . , data=dengue2_train, control = rpart.control(cp=0.0001,minsplit = 5, k = 5))
+ 
+dengue_tree3 <- rpart(total_cases ~ ., data=dengue3_train, control = rpart.control(cp=0.0001,minsplit = 5, k = 5))
+```
+
+```{r chunk3}
+
+#create function that prunes the tree to 1SE above the one with lowest in sample error
+prune_1se = function(my_tree) {
+  out = as.data.frame(my_tree$cptable)
+  thresh = min(out$xerror + out$xstd)
+  cp_opt = max(out$CP[out$xerror <= thresh])
+  prune(my_tree, cp=cp_opt)
+}
+
+#Prunes tree for both models
+tree2_prune <- prune_1se(dengue_tree2)
+tree3_prune <- prune_1se(dengue_tree3)
+```
+
+The following show the RMSE for the CART method for both models:
+
+```{r chunk4}
+cat("CART in-sample RMSE (Model_1):", modelr::rmse(tree2_prune, dengue2_train),  "\n")
+cat("CART out-of-sample RMSE (Model_1):", modelr::rmse(tree2_prune, dengue2_test),  "\n")
+cat("\n")
+cat("CART in-sample RMSE (Model_2):", modelr::rmse(tree3_prune, dengue3_train),  "\n")
+cat("CART out-of-sample RMSE (Model_2):", modelr::rmse(tree3_prune, dengue3_test),  "\n")
+```
+
+### b. Random Forest
+
+The following show the RMSE of the Random Forest method for both models:
+
+```{r chunk5}
+set.seed(9456)
+
+dengue_forest2 <- randomForest(total_cases ~ ., data=dengue2_train, importance = TRUE)
+
+dengue_forest3 <- randomForest(total_cases ~ ., data=dengue3_train, importance = TRUE)
+
+# let's compare RMSE on the test set
+
+cat("Random Forest in-sample RMSE (Model_1):", modelr::rmse(dengue_forest2, dengue2_train), "\n")
+cat("Random Forest out-of-sample RMSE (Model_1):", modelr::rmse(dengue_forest2, dengue2_test), "\n")
+cat("\n")
+cat("Random Forest in-sample RMSE (Model_2):", modelr::rmse(dengue_forest3, dengue3_train), "\n")
+cat("Random Forest out-of-sample RMSE (Model_2):",modelr::rmse(dengue_forest3, dengue3_test), "\n")
+
+
+```
+
+
+### c. Gradient_boosted Trees
+
+```{r chunk6}
+#Factor categorical variables
+
+dengue2_train$city = factor(dengue2_train$city)
+dengue2_train$season = factor(dengue2_train$season)
+dengue2_test$city = factor(dengue2_test$city)
+dengue2_test$season = factor(dengue2_test$season)
+
+dengue3_train$city = factor(dengue3_train$city)
+dengue3_train$season = factor(dengue3_train$season)
+dengue3_test$city = factor(dengue3_test$city)
+dengue3_test$season = factor(dengue3_test$season)
+```
+
+
+The following show the RMSE of the Gradient-boosted Tree method for both models. This method has the lowest RMSEs. Model_2 has the lowest RMSE of all models performed thus far.
+
+```{r chunk7}
+set.seed(9456)
+
+#Create Model 1
+dengue_boost2 = gbm(total_cases ~ ., data=dengue2_train, 
+               interaction.depth=10, n.trees=500, shrinkage=.01, distribution = 'gaussian', cv.folds=5)
+
+# RMSE
+cat("Gradient-boosted Tree in-sample RMSE (Model_1):", modelr::rmse(dengue_boost2, dengue2_train), "\n")
+cat("\n")
+cat("\n")
+cat("Gradient-boosted Tree out-of-sample RMSE (Model_1):", modelr::rmse(dengue_boost2, dengue2_test), "\n")
+
+```
+
+<br/>
+
+```{r chunk8}
+set.seed(9456)
+
+#Create Model 2
+dengue_boost3 = gbm(total_cases ~ ., data=dengue3_train, 
+               interaction.depth=10, n.trees=500, shrinkage=.01, distribution = 'gaussian', cv.folds = 5)
+
+# RMSE
+cat("Gradient-boosted Tree in-sample RMSE (Model_2):", modelr::rmse(dengue_boost3, dengue3_train), "\n")
+cat("\n")
+cat("\n")
+cat("Gradient-boosted Tree out-of-sample RMSE (Model_2):", modelr::rmse(dengue_boost3, dengue3_test), "\n")
+
+
+```
+
+### d. Partial Dependence Plots of Gradient_boosted Trees for Model_2
+
+Note that the gbm function used 182 trees above, so the following partial dependence plots have n.trees set to 182.
+
+
+```{r chunk9}
+partial(dengue_boost3, pred.var = "specific_humidity", n.trees=182, plot = TRUE) 
+partial(dengue_boost3, pred.var = "precipitation_amt", n.trees=182, plot = TRUE)
+partial(dengue_boost3, pred.var = "tdtr_k", n.trees=182, plot = TRUE)
+```
+
+
+
+
+
+
+
