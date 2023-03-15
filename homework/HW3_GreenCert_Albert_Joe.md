@@ -63,7 +63,7 @@ following show the RMSEs for both the training and testing sets. Note
 that the RMSE for both the training and testing sets are approximately
 equal (this was consistent over 5 random seeds).
 
-    ## Linear Model in-sample mean RMSE of 5 folds: 9.7767
+    ## Linear Model in-sample mean RMSE of 5 folds: 9.8702
 
     ## Linear Model out-of-sample RMSE: 9.8717
 

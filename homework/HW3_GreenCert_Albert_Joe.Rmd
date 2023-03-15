@@ -98,8 +98,8 @@ set.seed(9456)
 #Calculate RSME using stepwise function with 2 interactions
 
 K_folds = 5
-green_folds = green %>%
-  mutate(fold_id = rep(1:K_folds, length=nrow(green)) %>% sample)
+green_folds = green_train %>%
+  mutate(fold_id = rep(1:K_folds, length=nrow(green_train)) %>% sample)
 
 #RMSE of Medium Model
 rmse_lm = foreach(fold = 1:K_folds, .combine = 'c') %do% {
