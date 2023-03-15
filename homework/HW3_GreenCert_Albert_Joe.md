@@ -65,15 +65,15 @@ equal (this was consistent over 5 random seeds).
 
     ## Linear Model in-sample mean RMSE of 5 folds: 9.7767
 
-    ## Linear Model out-of-sample RMSE: 9.3712
+    ## Linear Model out-of-sample RMSE: 9.8717
 
 The following shows the summary statistics for ‘green\_rating’. This
 model shows that holding all other variables constant, having a
 ‘green\_certification’ increases the ‘revenue per square foot per
-calendar year’ by about $1.42.
+calendar year’ by about $1.32.
 
     ##   Estimate Std. Error    t value   Pr(>|t|) 
-    ##     1.4169     0.4172     3.3967     0.0007
+    ##     1.3205     0.4717     2.7995     0.0051
 
 #### Random Forest Model
 
@@ -112,19 +112,19 @@ lower RMSEs.
 
 The following shows the in-sample RMSE for the Stacked Model.
 
-    ## Stacked Model in-sample RMSE: 1.688752
+    ## Stacked Model in-sample RMSE: 1.68936
 
 The following shows the coefficients of the second-level learner. Note
 that these coefficients were all generated using the training set. Not
 that these are ultimately used to generate predictions for the Stacked
 Model in the test set.
 
-    ##  (Intercept)     gbm_pred  forest_pred      lm_pred 
-    ##  0.005778722  0.947066957  0.126333930 -0.073503965
+    ## (Intercept)    gbm_pred forest_pred     lm_pred 
+    ## -0.04374805  0.94938894  0.12318462 -0.07056185
 
 The following show the out-of-sample RMSE of the Stacked Model.
 
-    ## Stacked Model out-of-sample RMSE: 7.226953
+    ## Stacked Model out-of-sample RMSE: 7.204655
 
 ### Modeling Choice
 
@@ -154,7 +154,7 @@ plots it. Note this shows that holding all other variables constant,
 having a ‘green\_certification’ increases the ‘revenue per square foot
 per calendar year’ by about $0.61.
 
-    ## Partial Dependece of Green Certification: 0.611
+    ## Partial Dependece of Green Certification: 0.573
 
 ![](HW3_GreenCert_Albert_Joe_files/figure-markdown_strict/chunk18-1.png)
 
@@ -164,10 +164,10 @@ The Stacked Model likely performed the best because it leverages the
 strengths of the other models and minimizes their weaknesses. For
 example, the Linear Model showed that holding all other variables
 constant, having a ‘green\_certification’ increases the ‘revenue per
-square foot per calendar year’ by about $1.42. Although this seems like
+square foot per calendar year’ by about $1.32. Although this seems like
 a small number, it is actually ver significant. If a building has about
 50 rooms averaging about 1,000 square feet, the difference in ‘revenue’
-is approximately $70,000. There could be other factors not captured in
+is approximately $66,000. There could be other factors not captured in
 the data that a linear model can account for that could contribute to
 this difference. In other words, we would need more data to train a
 better linear model as it is extremely difficult for a linear model to
@@ -179,12 +179,12 @@ overfitting. Consequently, by creating a Stacked Model, the risk of
 overfitting is reduced. The partial dependence of the Stacked Model
 showed that holding all other variables constant, having a
 ‘green\_certification’ increases the ‘revenue per square foot per
-calendar year’ by about $0.61. If a building has about 50 rooms
+calendar year’ by about $0.57. If a building has about 50 rooms
 averaging about 1,000 square feet, the difference in ‘revenue’ is now
-approximately $30,000.
+approximately $28,500.
 
 Although much improved from the Linear Model, the RMSE of the Stacked
-Model is still pretty high at $7.227. More accurate predictions and a
+Model is still pretty high at $7.205. More accurate predictions and a
 more accurate partial dependency of ‘green\_certification’ can be
 achieved with more relevant data. This dataset contains data on
 commercial rental properties from across the United States, but does not
@@ -195,5 +195,5 @@ revenues.
 
 Overall, it seems like having a Green Certification does seem to have a
 positive effect on revenue, but based on the current amount of data, I
-cannot confidently conclude that it is a $0.61 increase in ‘revenue per
+cannot confidently conclude that it is a $0.57 increase in ‘revenue per
 square foot per calendar year’ or that this relationship is causal.

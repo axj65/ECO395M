@@ -1,7 +1,7 @@
 ---
 title: "HW3: Green Certification"
 output: "md_document"
-date: "2023-03-01"
+date: "2023-03-23"
 ---
 
 ```{r setup, include=FALSE}
@@ -134,7 +134,7 @@ green_lm <- lm(revenue ~ green_rating + size + empl_gr + stories + age + renovat
     renovated:Gas_Costs + size:hd_total07 + hd_total07:Precipitation + 
     cd_total_07:Precipitation + stories:class_b + class_a:hd_total07 + 
     Precipitation:City_Market_Rent, 
-    data = green)
+    data = green_train)
 
 #Training RMSE with 5 folds
 rmse_train_lm <- mean(rmse_lm) %>% round(4)
@@ -146,7 +146,7 @@ cat("Linear Model out-of-sample RMSE:", rmse_test_lm, "\n")
 
 ```
 
-The following shows the summary statistics for 'green_rating'. This model shows that holding all other variables constant, having a 'green_certification' increases the 'revenue per square foot per calendar year' by about \$1.42. 
+The following shows the summary statistics for 'green_rating'. This model shows that holding all other variables constant, having a 'green_certification' increases the 'revenue per square foot per calendar year' by about \$1.32. 
 
 ```{r chunk5}
 summary(green_lm)$coefficients['green_rating',] %>% round(4)
@@ -238,7 +238,7 @@ stacked_data2 <- data.frame(gbm_pred2, forest_pred2, lm_pred2, green_test$revenu
 stacked_data2 <- stacked_data2 %>% rename(revenue = green_test.revenue)
 
 #Generate predictions for the stacked model on the test set using the coefficients learned from the training set
-stacked_data2 <- stacked_data2 %>% mutate(pred = -0.005778722 + 0.947066957*gbm_pred2 + 0.126333930*forest_pred2 - 0.073503965*lm_pred2)
+stacked_data2 <- stacked_data2 %>% mutate(pred = -0.04374805 + 0.94938894*gbm_pred2 + 0.12318462*forest_pred2 - 0.07056185 *lm_pred2)
 
 
 ```
@@ -327,12 +327,12 @@ ggplot(df, aes(x=green_certification, y=revenue)) +
 
 ### Conclusion
 
-The Stacked Model likely performed the best because it leverages the strengths of the other models and minimizes their weaknesses. For example, the Linear Model showed that holding all other variables constant, having a 'green_certification' increases the 'revenue per square foot per calendar year' by about \$1.42. Although this seems like a small number, it is actually ver significant. If a building has about 50 rooms averaging about 1,000 square feet, the difference in 'revenue' is approximately $70,000. There could be other factors not captured in the data that a linear model can account for that could contribute to this difference. In other words, we would need more data to train a better linear model as it is extremely difficult for a linear model to capture nuances based on the current dataset.
+The Stacked Model likely performed the best because it leverages the strengths of the other models and minimizes their weaknesses. For example, the Linear Model showed that holding all other variables constant, having a 'green_certification' increases the 'revenue per square foot per calendar year' by about \$1.32. Although this seems like a small number, it is actually ver significant. If a building has about 50 rooms averaging about 1,000 square feet, the difference in 'revenue' is approximately $66,000. There could be other factors not captured in the data that a linear model can account for that could contribute to this difference. In other words, we would need more data to train a better linear model as it is extremely difficult for a linear model to capture nuances based on the current dataset.
 
-The Random Forest and Gradient-boosted Tree Models are better able to capture the nuances in the data. However, this is done at the risk of overfitting. Consequently, by creating a Stacked Model, the risk of overfitting is reduced. The partial dependence of the Stacked Model showed that holding all other variables constant, having a 'green_certification' increases the 'revenue per square foot per calendar year' by about \$0.61. If a building has about 50 rooms averaging about 1,000 square feet, the difference in 'revenue' is now approximately $30,000. 
+The Random Forest and Gradient-boosted Tree Models are better able to capture the nuances in the data. However, this is done at the risk of overfitting. Consequently, by creating a Stacked Model, the risk of overfitting is reduced. The partial dependence of the Stacked Model showed that holding all other variables constant, having a 'green_certification' increases the 'revenue per square foot per calendar year' by about \$0.57. If a building has about 50 rooms averaging about 1,000 square feet, the difference in 'revenue' is now approximately $28,500. 
 
-Although much improved from the Linear Model, the RMSE of the Stacked Model is still pretty high at $7.227. More accurate predictions and a more accurate partial dependency of 'green_certification' can be achieved with more relevant data. This dataset contains data on commercial rental properties from across the United States, but does not even have the city and state in which these properties are located. Although the City_Market_Rent variable may capture some of this, even different locations within a city could have significantly different revenues. 
+Although much improved from the Linear Model, the RMSE of the Stacked Model is still pretty high at $7.205. More accurate predictions and a more accurate partial dependency of 'green_certification' can be achieved with more relevant data. This dataset contains data on commercial rental properties from across the United States, but does not even have the city and state in which these properties are located. Although the City_Market_Rent variable may capture some of this, even different locations within a city could have significantly different revenues. 
 
-Overall, it seems like having a Green Certification does seem to have a positive effect on revenue, but based on the current amount of data, I cannot confidently conclude that it is a \$0.61 increase in 'revenue per square foot per calendar year' or that this relationship is causal.
+Overall, it seems like having a Green Certification does seem to have a positive effect on revenue, but based on the current amount of data, I cannot confidently conclude that it is a \$0.57 increase in 'revenue per square foot per calendar year' or that this relationship is causal.
 
 
