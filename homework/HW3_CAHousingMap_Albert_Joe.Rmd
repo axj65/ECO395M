@@ -1,0 +1,73 @@
+---
+title: "HW3: California Housing Maps"
+output: "html_document"
+date: "2023-03-23"
+---
+
+```{r setup, include=FALSE}
+
+#Set Directory
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/ECO395M/homework/")
+
+#Load Libraries
+library(readr)
+library(tidyverse)
+library(rsample)
+library(caret)
+library(modelr)
+library(parallel)
+library(foreach)
+library(dplyr)
+library(rmarkdown)
+library(lubridate)
+library(mosaic)
+library(gamlr)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+library(pdp)
+library(lattice)
+
+library(sf)
+library(mapview)
+
+#Load Dataset
+df <- read_csv("Data/ca.csv")
+```
+
+
+#### Maps
+
+Plot using a color scale to show medianHouseValue versus longitude (x) and latitude (y).
+
+```{r chunk1}
+mapview(df, xcol = "longitude", ycol = "latitude", zcol= "medianHouseValue", crs = 4269, grid = FALSE)
+```
+
+
+Plot using a color scale to show predicted medianHouseValue versus longitude (x) and latitude (y).
+
+```{r chunk2}
+mapview(df, xcol = "longitude", ycol = "latitude", zcol= "preds", crs = 4269, grid = FALSE)
+```
+
+Plot using a color scale to show residuals versus longitude (x) and latitude (y).
+
+```{r chunk3}
+mapview(df, xcol = "longitude", ycol = "latitude", zcol= "residuals", crs = 4269, grid = FALSE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
