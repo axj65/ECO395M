@@ -13,24 +13,6 @@ knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Lea
 #Load Libraries
 library(readr)
 library(tidyverse)
-library(rsample)
-library(caret)
-library(modelr)
-library(parallel)
-library(foreach)
-library(dplyr)
-library(rmarkdown)
-library(lubridate)
-library(mosaic)
-library(gamlr)
-library(rpart)
-library(rpart.plot)
-library(randomForest)
-library(gbm)
-library(pdp)
-library(lattice)
-
-library(sf)
 library(mapview)
 
 #Load Dataset
