@@ -1,0 +1,308 @@
+---
+title: "HW3: California Housing"
+output: "md_document"
+date: "2023-03-23"
+---
+
+```{r setup, include=FALSE}
+
+#Set Directory
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/ECO395M/homework/")
+
+#Load Libraries
+library(readr)
+library(tidyverse)
+library(rsample)
+library(caret)
+library(modelr)
+library(parallel)
+library(foreach)
+library(dplyr)
+library(rmarkdown)
+library(lubridate)
+library(mosaic)
+library(gamlr)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+library(pdp)
+library(lattice)
+
+#Load Dataset
+housing <- read_csv("Data/CAhousing.csv")
+```
+
+
+## 4. Predictive Model Building: California Housing
+
+```{r chunk1}
+set.seed(9456)
+
+#standardizing bedrooms and rooms by household
+housing <- housing %>% mutate(avgBedrooms = totalBedrooms/households)
+housing <- housing %>% mutate(avgRooms = totalRooms/households)
+
+#train-test split
+housing_split = initial_split(housing, prop = 0.8)
+housing_train = training(housing_split)
+housing_test = testing(housing_split)
+
+```
+
+### Methods
+
+On this exercise, I generated 4 models: a KNN Model, a Random Forest Model, a GBM model, and a Stacked Model. I partitioned the dataset into a training set and a test set using an 80-20 split. For all models, the training set is used for training the model, hyperparameter tuning, and model selection. All K-fold cross validation was done on the training set; the test set was reserved for final validation of the models. 
+
+#### KNN Model
+
+The KNN Model was used as an initial Benchmark. The following show the RMSEs. The in-sample RMSE was generated using an average of 5 cross-validated RMSEs. The out-of-sample RMSE show the RMSE of predictions on the test set.
+
+```{r chunk2}
+#Scale the variables for KNN Training Set
+housing_standardized_train <- housing_train %>% select(medianHouseValue, everything())
+
+#Scale continuous variables (note response variable, price, and categorical variables are not scaled)
+housing_standardized_train <- scale(housing_standardized_train[,2:11])
+
+#Binds price, the scaled variables, and categorical variables back into a single dataframe
+housing_standardized_train <- cbind(housing_train$medianHouseValue, housing_standardized_train)
+colnames(housing_standardized_train)[1] <- "medianHouseValue"
+
+housing_standardized_train <- data.frame(housing_standardized_train)
+```
+
+```{r chunk3}
+#Scale the variables for KNN Test Set
+housing_standardized_test <- housing_test %>% select(medianHouseValue, everything())
+
+#Scale continuous variables (note response variable, price, and categorical variables are not scaled)
+housing_standardized_test <- scale(housing_standardized_test[,2:11])
+
+#Binds price, the scaled variables, and categorical variables back into a single dataframe
+housing_standardized_test <- cbind(housing_test$medianHouseValue, housing_standardized_test)
+colnames(housing_standardized_test)[1] <- "medianHouseValue"
+
+housing_standardized_test <- data.frame(housing_standardized_test)
+```
+
+```{r chunk4}
+
+set.seed(9456)
+
+K_folds = 5
+housing_standardized_folds <- housing_standardized_train %>%
+  mutate(fold_id = rep(1:K_folds, length=nrow(housing_standardized_train)) %>% sample)
+
+#Medium Model RMSE
+rmse_knn = foreach(fold = 1:K_folds, .combine = 'c') %do% {
+  knn = knnreg(medianHouseValue ~ . -totalRooms - totalBedrooms -housingMedianAge -avgRooms, 
+                  data=filter(housing_standardized_folds, fold_id!=fold), k=9)
+  modelr::rmse(knn, data = filter(housing_standardized_folds, fold_id == fold))
+}
+
+#KNN Model
+housing_knn = knnreg(medianHouseValue ~ . -totalRooms - totalBedrooms -housingMedianAge -avgRooms, 
+                  data=housing_standardized_train, k=9)
+
+#RMSE
+cat("KNN in-sample RMSE:", mean(rmse_knn), "\n")
+cat("KNN out-of-sample RMSE:", rmse(housing_knn, housing_standardized_test), "\n")
+
+
+```
+
+
+#### Random Forest Model
+
+The following show the RMSE results for the Random Forest Model. These show that there was significant improvement from the KNN Model, and serves as another benchmark to compare the GBM model to.
+
+```{r chunk5}
+
+set.seed(9456)
+
+#Random Forest Model
+housing_rf <- randomForest(medianHouseValue ~ . -totalRooms - totalBedrooms, 
+                             data=housing_train, importance = TRUE, ntree=500)
+
+#RMSE of 
+rmse_train_rf <- modelr::rmse(housing_rf, housing_train)
+rmse_test_rf <- modelr::rmse(housing_rf, housing_test)
+
+cat("Random Forest Model in-sample RMSE:", rmse_train_rf, "\n")
+cat("Random Forest Model out-of-sample RMSE:", rmse_test_rf, "\n")
+
+```
+
+
+#### GBM Model
+
+The GBM Model was trained using 5 cross validated folds with an interaction depth of 10, a shrinkage of 0.1, and 1,000 trees. This model outperformed the Random Forest Model over 5 random seeds. The following show the RMSEs of the GBM Model.
+
+```{r chunk6, include=FALSE}
+
+set.seed(9456)
+
+#Gradient-boosted Tree
+housing_gbm = gbm(medianHouseValue ~ . -totalRooms - totalBedrooms, 
+                  data=housing_train, interaction.depth=10, n.trees=1000, shrinkage=.1, distribution = 'gaussian', cv.folds=5)
+
+rmse_train_gbm <- modelr::rmse(housing_gbm, housing_train)
+rmse_test_gbm <- modelr::rmse(housing_gbm, housing_test)
+```
+
+```{r chunk7}
+cat("GBM in-sample RMSE:", rmse_train_gbm, "\n")
+cat("GBM out-of-sample RMSE:", rmse_test_gbm, "\n")
+```
+
+
+
+#### Stacked Model
+
+Finally, I used a Stacked Model, in which I used an ensemble approach combining the predictions of the three separate GBM Models and used another GBM Model as a second level learner to stack the individual model predictions. Each GBM Model was generated by using a different random seed. Although the improvement on this model was relatively minor, this model outperformed the normal GBM Model over 5 random seeds. Consequently, this is my model of choice for generating the best predictive model. The following show the RMSEs of this model.
+
+```{r chunk8}
+
+#Create 2 additional gbm models
+
+set.seed(1994)
+#Gradient-boosted Tree
+housing_gbm2 = gbm(medianHouseValue ~ . -totalRooms - totalBedrooms, 
+                  data=housing_train, interaction.depth=10, n.trees=1000, shrinkage=.1, distribution = 'gaussian', cv.folds=5)
+
+set.seed(1111)
+#Gradient-boosted Tree
+housing_gbm3 = gbm(medianHouseValue ~ . -totalRooms - totalBedrooms, 
+                  data=housing_train, interaction.depth=10, n.trees=1000, shrinkage=.1, distribution = 'gaussian', cv.folds=5)
+
+```
+
+
+```{r chunk9, include=FALSE}
+
+set.seed(9456)
+
+#Generate Predictions on the training data
+gbm_pred <- predict(housing_gbm, newdata = housing_train)
+gbm_pred2 <- predict(housing_gbm2, newdata = housing_train)
+gbm_pred3 <- predict(housing_gbm3, newdata = housing_train)
+
+#Create a dataframe with predictions from all the models along with the medianHousePrice
+stacked_data <- data.frame(gbm_pred, gbm_pred2, gbm_pred3, housing_train$medianHouseValue)
+stacked_data <- stacked_data %>% rename(medianHouseValue = housing_train.medianHouseValue)
+
+#Second level learner using gbm
+stacked_model = gbm(medianHouseValue ~ ., 
+                  data=stacked_data, interaction.depth=3, n.trees=1000, shrinkage=.01, distribution = 'gaussian', cv.folds=5)
+
+#generate RMSE
+stacked_train_rmse <- modelr::rmse(stacked_model, stacked_data)
+
+
+```
+
+```{r chunk10}
+#print RMSE
+cat("Stacked Model in-sample RMSE:", stacked_train_rmse, "\n")
+```
+
+```{r chunk11, include=FALSE}
+
+#Generate predictions on test set
+gbm_pred <- predict(housing_gbm, newdata = housing_test)
+gbm_pred2 <- predict(housing_gbm2, newdata = housing_test)
+gbm_pred3 <- predict(housing_gbm3, newdata = housing_test)
+
+#Generate final prediction using stacked_model
+stacked_data2 <- data.frame(gbm_pred, gbm_pred2, gbm_pred3, housing_test$medianHouseValue)
+stacked_gbm_predictions <- predict(stacked_model, newdata = stacked_data2)
+```
+
+```{r chunk12}
+stacked_test_rmse <- sqrt(mean((housing_test$medianHouseValue - stacked_gbm_predictions)^2))
+cat("Stacked Model out-of-sample RMSE:", stacked_test_rmse, "\n")
+```
+
+
+#### Cross-Validated Predictions using the Stacked Model
+
+Because I want to plot my predictions and residuals versus the geolocation, I generated cross-validated predictions using my stacked model. I first created 5 folds, using 4 folds as the training set and 1 fold as the test set. Using the training set, I created 3 separate GBM Models and passed them through a second-level learner (also using GBM) to generate predictions for the test set. I did this until each fold was used as a test set once so that out-of-sample predictions was generated for the whole dataset. 
+
+```{r chunk13, include=FALSE}
+
+K_folds = 5
+housing_folds <- housing %>%
+  mutate(fold_id = rep(1:K_folds, length=nrow(housing)) %>% sample)
+
+#Create an empty dataframe with the same column names as the hotels_dev dataset
+#I will use this to continue to append the out of sample predicted values into this dataset
+df <- data.frame(matrix(ncol = ncol(housing), nrow = 0))
+colnames(df) <- colnames(housing)
+
+for (i in 1:K_folds) {
+  
+  #Create train test splits based on fold_id
+  gbm_train <- housing_folds %>% filter(fold_id != i)
+  gbm_test <- housing_folds %>% filter(fold_id == i)
+  
+  
+  #Gradient-boosted Trees
+  set.seed(9456)
+  housing_gbm = gbm(medianHouseValue ~ . -totalRooms - totalBedrooms, 
+                  data=gbm_train, interaction.depth=10, n.trees=1000, shrinkage=.1, distribution = 'gaussian', cv.folds=5)
+  set.seed(1994)
+  housing_gbm2 = gbm(medianHouseValue ~ . -totalRooms - totalBedrooms, 
+                  data=gbm_train, interaction.depth=10, n.trees=1000, shrinkage=.1, distribution = 'gaussian', cv.folds=5)
+  set.seed(1111)
+  housing_gbm3 = gbm(medianHouseValue ~ . -totalRooms - totalBedrooms, 
+                  data=gbm_train, interaction.depth=10, n.trees=1000, shrinkage=.1, distribution = 'gaussian', cv.folds=5)
+  
+  #Generate Predictions on the training data
+  gbm_pred <- predict(housing_gbm, newdata = gbm_train)
+  gbm_pred2 <- predict(housing_gbm2, newdata = gbm_train)
+  gbm_pred3 <- predict(housing_gbm3, newdata = gbm_train)
+
+  #Create a dataframe with predictions from all the models along with the medianHousePrice
+  stacked_data <- data.frame(gbm_pred, gbm_pred2, gbm_pred3, gbm_train$medianHouseValue)
+  stacked_data <- stacked_data %>% rename(medianHouseValue = gbm_train.medianHouseValue)
+
+  #Second level learner using gbm
+  stacked_model = gbm(medianHouseValue ~ ., 
+                    data=stacked_data, interaction.depth=3, n.trees=1000, shrinkage=.01, distribution = 'gaussian', cv.folds=5)
+  
+  #Generate predictions on test set
+  gbm_pred <- predict(housing_gbm, newdata = gbm_test)
+  gbm_pred2 <- predict(housing_gbm2, newdata = gbm_test)
+  gbm_pred3 <- predict(housing_gbm3, newdata = gbm_test)
+
+  #Generate final prediction using stacked_model
+  stacked_data2 <- data.frame(gbm_pred, gbm_pred2, gbm_pred3)
+  stacked_gbm_predictions <- predict(stacked_model, newdata = stacked_data2)
+  
+  #Predict Values for test data/fold
+  gbm_test$preds <- predict(stacked_model, newdata = stacked_data2)
+  
+  #Append the data with predictions to the empty dataframe
+  df <- rbind(df, gbm_test)
+}
+```
+
+The following shows the average RMSE of my predictions versus the actual medianHouseValues. This is the overall out-of-sample accuracy of my proposed model.
+
+```{r chunk14}
+final_rmse <- sqrt(mean((df$medianHouseValue - df$preds)^2))
+cat("Stacked Model out-of-sample RMSE:", final_rmse, "\n")
+```
+
+
+
+
+
+
+
+
+
+
+
