@@ -773,7 +773,7 @@ cat("Stacked Model out-of-sample RMSE:", final_rmse, "\n")
 library(mapview)
 
 #Load Dataset
-df <- read_csv("Data/ca.csv")
+df <- read_csv("https://raw.githubusercontent.com/axj65/ECO395M/main/homework/Data/ca.csv")
 ```
 
 Plot using a color scale to show medianHouseValue versus longitude (x) and latitude (y).
