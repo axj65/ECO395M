@@ -350,24 +350,29 @@ rules_lift_filtered <- subset(rules_lift, lift > 2)
 
 In particular, by setting confidence to 0.5 and lift to 2, I found strong associations between a variety of items and 'other vehgetables' or 'whole milk'. On other words, it seems that when people buy other things, they also tend to buy 'other vegetanles' and 'whole milk' as well. For different values of confidence and lift, values made sense for the most part. All seemd like combinations I would potentially buy based on what I have or do not have at home. 
 
-However, one interesting rule I found was between 'curd, tropical fruit' and 'yogurt'. This rule has a lift of 3.69 and a confidence of 0.51. Although this was not an association I would typically expect, both the lift and confidence are high relative to the remainder of the associations. 
+However, one interesting rule I found was between 'curd, tropical fruit' and 'yogurt'. This rule has a lift of 3.69 and a confidence of 0.51. In fact, this has the highest lift given the confidence and support chosen. Although this was not an association I would typically expect, both the lift and confidence are high relative to the remainder of the associations. 
+
+Note that although there are about 100 observations, I only show the first and last 10 observations to reduce clutter in this report. Note that all values in between the head and tail have rhs as either 'other vegetable' or 'milk'
 
 ```{r grocery3}
-inspect(head(rules_lift_filtered, n = 1000))
+inspect(head(rules_lift_filtered, n = 10))
+```
 
+```{r grocery4}
+inspect(tail(rules_lift_filtered, n = 10))
 ```
 
 Plot of all the rules in (support, confidence) space
 
 ```{r}
 library(arulesViz)
-plot(rules)
+plot(rules, jitter=0)
 
 ```
 Two-key plot: coloring is by size of item set.
 
-```{r}
-plot(rules, method='two-key plot')
+```{r, warning=FALSE}
+plot(rules, method='two-key plot', jitter=0)
 
 ```
 
