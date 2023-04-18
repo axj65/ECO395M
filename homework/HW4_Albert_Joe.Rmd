@@ -1,0 +1,374 @@
+---
+title: "HW4"
+output: "md_document"
+date: "2023-04-18"
+---
+
+```{r setup, include=FALSE}
+
+#Set Directory
+knitr::opts_chunk$set(echo = FALSE, include = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/albertjoe33/Documents/UT_Austin/Stat_Learning/ECO395M/homework/")
+
+#Load Libraries
+library(readr)
+library(tidyverse)
+library(rsample)
+library(caret)
+library(modelr)
+#library(parallel)
+library(foreach)
+library(dplyr)
+library(rmarkdown)
+library(lubridate)
+library(mosaic)
+#library(gamlr)
+#library(rpart)
+#library(rpart.plot)
+#library(randomForest)
+#library(gbm)
+library(pdp)
+library(lattice)
+library(ClusterR) 
+library(FactoMineR)
+library(factoextra)
+library(plotly)
+library(arules)
+#Load Dataset
+wine <- read_csv("Data/wine.csv")
+
+
+```
+
+## 1. Clustering and PCA
+
+### PCA
+
+#### Wine Color
+
+I want to first look at how PCA can help us distinguish white wines from red wines.
+
+```{r wine1}
+#Make dataframes of parameters and variables of interest
+X_wine <- wine[, 1:11]
+color <- wine[,13]
+quality <- wine[,12]
+
+```
+
+```{r wine2}
+#Run PCA w/ 2 components and extract components
+pca_wine <- prcomp(X_wine, scale=TRUE, rank=3)
+pc1_wine <- pca_wine$x[,1]
+pc2_wine <- pca_wine$x[,2]
+pc3_wine <- pca_wine$x[,3]
+
+#Make Color and components into dataframe and only retain unique values (to help better see plot)
+wine_color_pc <- data.frame(color = color, pc1 = round(pc1_wine,1) , pc2 = round(pc2_wine,1))
+wine_color_pc = unique(wine_color_pc)
+```
+
+As we can see, with 2 principle components, PCA can help us distinguish most red wines from white wines.
+```{r wine3}
+
+# Color I want for red and white wines
+my_colors = c('red','white')
+
+# create a scatter plot 
+ggplot(data = wine_color_pc, aes(x = pc1, y = pc2, color = color, size = color, alpha = color)) + 
+  geom_point() + 
+  labs(x = "PC1", y = "PC2") +
+  scale_color_manual(values = my_colors) + 
+  scale_size_manual(values = c('red' = 0.9, 'white' = 0.9)) + 
+  scale_alpha_manual(values = c('red' = 0.9, 'white' = 0.4))
+
+```
+
+#### Wine Quality
+
+```{r wine4}
+#Make Color and components into dataframe and only retain unique values (to help better see plot)
+wine_quality_pc <- data.frame(quality = quality, pc1 = round(pc1_wine,2), pc2 = round(pc2_wine, 2), pc3 = round(pc3_wine,2))
+
+wine_quality_pc <- unique(wine_quality_pc)
+```
+
+With 2 principal components, it seems that as PC2 values get lower, the quality increases. However, this is not very conclusive and PC1 is not very informative regarding the wine quality.
+
+```{r wine5}
+
+# create a scatter plot of PC1 vs. PC2, colored and shaped by color
+ggplot(data = wine_quality_pc, aes(x = pc1, y = pc2, color = quality)) +
+  geom_point(size = 0.4) +
+  scale_color_gradient(low = "red", high = "blue") +
+  labs(x = "PC1", y = "PC2", color = "Quality", shape = "Color")
+
+```
+
+Now looking at the PC2 and PC3, we can see that wines generally score better when PC2 and PC3 are both less than 0. 
+
+```{r wine6}
+ggplot(data = wine_quality_pc, aes(x = pc2, y = pc3, color = quality)) +
+  geom_point(size = 0.4) +
+  scale_color_gradient(low = "red", high = "blue") +
+  labs(x = "PC2", y = "PC3", color = "Quality", shape = "Color")
+```
+
+This may not work on an .md file but the folowing is an interactive 3d plot of the 3 principal components. This pretty much tells the same story as the plot for PC2 and PC3.
+
+```{r wine7}
+p <- plot_ly(wine_quality_pc, x = ~pc1, y = ~pc2, z = ~pc3, color = ~quality) %>% 
+  add_markers(size = 1.5)
+print(p)
+```
+
+
+
+### K-means
+
+We can first create an elbow plot to see the optimal number of clusters. I found this to be 5 clusters. For this portion, I want to focus on what K-means can tell us about the quality.
+
+```{r wine8}
+fviz_nbclust(X_wine, kmeans, nstart=25, method = "wss") + 
+  geom_vline(xintercept = 5, linetype = 1)
+```
+
+```{r wine9}
+#Scale and run k-means
+X_scaled <- scale(X_wine, center = TRUE, scale = TRUE)
+mu = attr(X_scaled,"scaled:center")
+sigma = attr(X_scaled,"scaled:scale")
+
+clust_wine = KMeans_rcpp(X_scaled, 5, num_init=25)
+
+```
+
+```{r wine10}
+#Create dataframe with quality and clusters
+wine$cluster <- as.factor(clust_wine$cluster)
+quality_cluster <- data.frame(table(quality = wine$quality, cluster =  wine$cluster))
+
+```
+
+```{r wine11}
+#Get the proportion of quality score for each cluster
+c1_temp <- quality_cluster %>% filter(cluster==1)
+c1_sum = sum(c1_temp$Freq)
+
+c2_temp <- quality_cluster %>% filter(cluster==2)
+c2_sum = sum(c2_temp$Freq)
+
+c3_temp <- quality_cluster %>% filter(cluster==3)
+c3_sum = sum(c3_temp$Freq)
+
+c4_temp <- quality_cluster %>% filter(cluster==4)
+c4_sum = sum(c4_temp$Freq)
+
+c5_temp <- quality_cluster %>% filter(cluster==5)
+c5_sum = sum(c5_temp$Freq)
+
+c1_temp <- c1_temp %>% mutate(prop = Freq/c1_sum)
+c2_temp <- c2_temp %>% mutate(prop = Freq/c2_sum)
+c3_temp <- c3_temp %>% mutate(prop = Freq/c3_sum)
+c4_temp <- c4_temp %>% mutate(prop = Freq/c4_sum)
+c5_temp <- c5_temp %>% mutate(prop = Freq/c5_sum)
+
+quality_cluster <- rbind(c1_temp, c2_temp, c3_temp, c4_temp, c5_temp)
+```
+
+The plot below helps visualize the proportion of each wine quality scores for each cluster. Although not particularly helpful in distinguishing higher quality wines from lower quality ones, we can see that cluster 2 offers a better chance of having a better wine score. 
+
+```{r wine12}
+# Create a scatter plot with different colors for each cluster
+plot_kmeans <- ggplot(quality_cluster, aes(x = cluster, y = quality, color = prop)) +
+  geom_point(size = 4, alpha = 0.8) +
+  scale_color_gradient(name = "prop") +
+  labs(title = "K-means Clustering", x = "Cluster", y = "Quality") +
+  theme_minimal()
+
+# Display the plot
+print(plot_kmeans)
+
+```
+
+In summary, looking at the first 2 principal components in PCA does a terrific jobs in distinguishing red from white wines. Looking at the first 3 components, it also helps us distinguish wine quality. Although K-means clustering with 5 clusters does offer some insights, it is not particularly helpful.
+
+```{r}
+#qplot(quality, data=wine, color=factor(clust1$cluster))
+```
+
+
+
+## 2. Market Segmentation
+
+```{r market1, include=FALSE}
+#Read in Data
+social_marketing <- read_csv("Data/social_marketing.csv")
+```
+
+### NutrientH2O Report
+
+```{r market2}
+#Drop all users / rows that have content flagged as spam
+social_marketing <- social_marketing %>% filter(spam == 0) %>% select(-spam, -chatter, -adult)
+#sum(social_marketing['spam'])
+
+X_market <- select(social_marketing, -1)
+
+```
+
+K-means clustering often offers good, interpretable insights into marketing segments. Based on the information from the elbow plot shown below, I group followers into 5 segments and give the conclusions of what advertising to the different segments might entail. 
+
+
+```{r market3}
+fviz_nbclust(X_market, kmeans, nstart=25, method = "wss") + 
+  geom_vline(xintercept = 5, linetype = 1)
+```
+
+
+
+```{r market4}
+#Scale and run k-means
+X_scaled <- scale(X_market, center = TRUE, scale = TRUE)
+mu = attr(X_scaled,"scaled:center")
+sigma = attr(X_scaled,"scaled:scale")
+
+clust_market = KMeans_rcpp(X_scaled, 5, num_init=25)
+```
+
+#### Marketing Segments
+
+Using 5 clusters, I calculated the mean of each variable for each cluster. Below, I show the heatmap of the means for reference along with the market segment of each cluster based on the limited knowledge gathered from the particular topics.
+
+```{r market5}
+#Run k-means
+
+X_market$cluster <- clust_market$cluster
+
+cluster_summary <- X_market %>%
+  group_by(cluster) %>%
+  summarise(across(everything(), ~mean(.x, na.rm = TRUE)))
+
+```
+
+```{r market6}
+#create heatmap
+
+cluster_summary_long <- cluster_summary %>%
+  pivot_longer(cols = -cluster,
+               names_to = "variable",
+               values_to = "mean")
+
+min_mean <- min(cluster_summary_long$mean)
+max_mean <- max(cluster_summary_long$mean)
+midpoint_mean <- (min_mean + max_mean) / 2
+
+ggplot(cluster_summary_long, aes(x = factor(cluster), y = variable, fill = mean)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = midpoint_mean) +
+  theme_minimal() +
+  labs(x = "Cluster", y = "Variable", fill = "Mean") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+```
+
+
+Cluster 1: photo_sharing, cooking
+Cluster 2: sports, food, religion, parenting, some photo sharing
+Cluster 3: Not very active on social media or not particularly interested in just a few topics
+Cluster 4: travel, politics, news
+Cluster 5: health_nutrition, personal_fitness, some photo sharing
+
+
+#### Interpreting the Segments
+
+The following offers a generalization of what the clusters or market segments may entail.
+
+1. Cluster 1 seems to consist of users who like to share photos of their food. These people gnerally like to take lots of pictures of their meals and post them. 
+
+2. Cluster 2 seems to consist of the 'traditional' parents. Their kids may play sports, they may go to church on Sundays, they probably watch football on Sundays, and they may sometimes share photos of family and friends getting together to have a meal. 
+
+3. Nothing particular stands out about Cluster 3. They most likely do not post much but could possibly scroll through their feed as a form of entertainment. 
+
+4. Cluster 4 seems to consist of businessmen and businesswomen. They are into politics and the news and may travel for work, or atleast have the money to travel more often for leisure. 
+
+5. Cluster 5 may be the health and fitness fanatics. They like going to the gym, eating healthy foods, and may post pictures of them at the gym, their choice of protein shake, pre-workout, or nutritious meal. 
+
+
+#### Recommendations on Advertising
+
+Now that we have interpreted the market segments, we need to identify the proportion of people in each segment as seen below. Based on these numbers and the conclusions drawn above, I make the following recommendations:
+
+```{r market7}
+X_market %>% count(cluster)
+```
+
+Cluster 1: If the company wants their drink to appear very often in posts, this would be the segment to advertise to. This is because this segment posts the most pictures of their food, in which drinks often appear beside. The drawback is that many people do not look too closely at their feed, and the company's drink may not be noticed as people are focused on the decorative food on these follower's plates.
+
+Cluster 2: This segment does not have many posts. However, this still presents an interesting marketing opportunity as parents whose kids play sports and have get-togethers will often buy sports drinks such as NutrientH2O in bulk. Although they may not post as much, they could potentially account for a good amount of profits.
+
+Cluster 3: This segment likely represents the majority of the population. Although not particularly interesting, advertising to this segment most likely captures the greatest number of people. Whether they are likely to buy the drink on based on the advertisement cannot be determined.
+
+Cluster 4: They account for a small proportion of the population and do not offer any particular benefits. I do not recommend advertising to this segment.
+
+Cluster 5: This segment likely posts picture of their workout supplements, in which NutrientH2O could be a part of especially during their workout. These people may purchase drinks similar to NutrientH2O to drink during their workouts and post pictures of the drink if they like the taste and the perceived benefits. This segments posts seems to offer more value than those in Cluster 1 as these followers would more likely post NutrientH2O as the main attraction as opposed to those in Cluster 1 whose post's main attraction are probably the food.
+
+
+## 3. Association Rules for Grocery Purchases
+
+
+```{r grocery1}
+#Reads .txt file into df. Each row is a shopping basket, using a new line to separate baskets
+groceries <- read.csv("Data/groceries.txt", header = FALSE, sep = "\n", stringsAsFactors = FALSE)
+
+# From the dataframe, create a list of baskets: vectors of items by consumer
+groceries_list <- lapply(groceries$V1, function(x) strsplit(x, split = ",")[[1]])
+
+#Remove duplicates
+groceries_list = lapply(groceries_list, unique)
+
+#Cast this variable as a special arules "transactions" class.
+transactions <- as(groceries_list, "transactions")
+
+```
+
+I played around with the confidence and lift values based on observations from the plots below and the different results from a few different combinations of confidence and lift.
+
+```{r grocery2, include=FALSE}
+
+# Now run the 'apriori' algorithm
+# Look at rules with support > .005 & confidence >0.1 & 3<=(# items)<=10
+rules <- apriori(transactions, parameter = list(support = 0.005, confidence = 0.5, minlen = 3, maxlen = 10))
+
+#Sort in descending order
+rules_lift <- sort(rules, by = "lift", decreasing = TRUE)
+#Select subset
+rules_lift_filtered <- subset(rules_lift, lift > 2)
+
+
+```
+
+In particular, by setting confidence to 0.5 and lift to 2, I found strong associations between a variety of items and 'other vehgetables' or 'whole milk'. On other words, it seems that when people buy other things, they also tend to buy 'other vegetanles' and 'whole milk' as well. For different values of confidence and lift, values made sense for the most part. All seemd like combinations I would potentially buy based on what I have or do not have at home. 
+
+However, one interesting rule I found was between 'curd, tropical fruit' and 'yogurt'. This rule has a lift of 3.69 and a confidence of 0.51. Although this was not an association I would typically expect, both the lift and confidence are high relative to the remainder of the associations. 
+
+```{r grocery3}
+inspect(head(rules_lift_filtered, n = 1000))
+
+```
+
+Plot of all the rules in (support, confidence) space
+
+```{r}
+library(arulesViz)
+plot(rules)
+
+```
+Two-key plot: coloring is by size of item set.
+
+```{r}
+plot(rules, method='two-key plot')
+
+```
+
+
